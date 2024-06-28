@@ -1,0 +1,35 @@
+{
+  "label": "debug-values",
+  "steps": 1,
+  "input_time": false,
+  "parameters": [
+    {
+      "name": "pixel_x",
+      "label": "Pixel coordinate (x)",
+      "type": "int",
+      "slider": false,
+      "min": 0,
+      "max": 999999,
+      "default": 320
+    },
+    {
+      "name": "pixel_y",
+      "label": "Pixel coordinate (y)",
+      "type": "int",
+      "slider": false,
+      "min": 0,
+      "max": 999999,
+      "default": 200
+    },
+    {
+      "name": "font_size",
+      "label": "Debug font size",
+      "type": "float",
+      "slider": true,
+      "min": 0.0,
+      "max": 128.0,
+      "step": 1.0,
+      "default": 32.0
+    }
+  ]
+}
