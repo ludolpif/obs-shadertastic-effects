@@ -2,7 +2,6 @@
  * This shader contains code from ShaderToy, licensed as CC BY-NC-SA 3.0.
  * So this shader is also CC BY-NC-SA 3.0
  */
-
 // Common parameters for all shaders, as reference. Do not uncomment this (but you can remove it safely).
 /*
 uniform float time;            // Time since the shader is running. Goes from 0 to 1 for transition effects; goes from 0 to infinity for filter effects
@@ -46,11 +45,21 @@ VertData VSDefault(VertData v_in)
     return vert_out;
 }
 
+// TODO Should be in a included file (need ShaderTastic modifications to allow it)
+/* ************** BEGIN INCLUDE ************** */
 // From https://www.shadertoy.com/view/3lGBDm
-float DigitBin( int x )
-{
-    return x==0?480599.0:x==1?139810.0:x==2?476951.0:x==3?476999.0:x==4?350020.0:x==5?464711.0:x==6?464727.0:x==7?476228.0:x==8?481111.0:x==9?481095.0:0.0;
-}
+#define DigitBin(x) ( \
+        x==0?480599.0:\
+        x==1?139810.0:\
+        x==2?476951.0:\
+        x==3?476999.0:\
+        x==4?350020.0:\
+        x==5?464711.0:\
+        x==6?464727.0:\
+        x==7?476228.0:\
+        x==8?481111.0:\
+        x==9?481095.0:\
+        0.0 )
 
 float PrintValue( vec2 vStringCoords, float fValue, float fMaxDigits, float fDecimalPlaces )
 {
@@ -79,6 +88,7 @@ float PrintValue( vec2 vStringCoords, float fValue, float fMaxDigits, float fDec
 	}
     return floor(mod((fCharBin / pow(2.0, floor(fract(vStringCoords.x) * 4.0) + (floor(vStringCoords.y * 5.0) * 4.0))), 2.0));
 }
+/* ************** END INCLUDE ************** */
 
 float4 EffectLinear(float2 uv)
 {
