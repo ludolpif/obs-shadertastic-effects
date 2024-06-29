@@ -8,9 +8,11 @@ uniform float vpixel;          // Height of a pixel in the UV space
 uniform float rand_seed;       // Seed for random functions
 uniform int current_step;      // index of current step (for multistep effects)
 */
-#define PI 3.1415926535
 // Specific parameters of the shader. They must be defined in the meta.json file next to this one.
 uniform float progression;
+
+// Additionnal definitions for this shader
+#define PI 3.1415926535
 //----------------------------------------------------------------------------------------------------------------------
 
 // These are required objects for the shader to work.
@@ -35,17 +37,20 @@ VertData VSDefault(VertData v_in)
     VertData vert_out;
     vert_out.uv  = v_in.uv;
 
-    // This effect dont use pixel shader at all, just change vertex shader output coordinates
-    float half_width = 1/upixel/2;
-    v_in.pos.x = (v_in.pos.x-half_width)*cos(progression*PI)+half_width ;
+    // Mirror effect done via vert_out.pos.x modification
+    float half_width = 1.0/upixel/2.0;
+    float v_mirror_pos_x = (v_in.pos.x-half_width)*cos(progression*PI)+half_width ;
+    float4 v_miror = float4(v_mirror_pos_x, v_in.pos.y, v_in.pos.z, 1.0);
 
-    vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+    vert_out.pos = mul(v_miror, ViewProj);
     return vert_out;
 }
 
+// This effect don't use pixel shader at all, it just tweaks the vertex shadeer
 float4 EffectLinear(float2 uv)
 {
-    return image.Sample(textureSampler, uv);
+    float4 rgba = image.Sample(textureSampler, uv);
+    return rgba;
 }
 
 // You probably don't want to change anything from this point.
