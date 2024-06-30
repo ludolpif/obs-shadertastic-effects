@@ -1,7 +1,6 @@
 {
-  "label": "Debug Values (v1)",
-  "steps": 1,
-  "input_time": false,
+  "label": "Debug Values",
+  "revision": 1,
   "parameters": [
     {
       "name": "pixel_x",
