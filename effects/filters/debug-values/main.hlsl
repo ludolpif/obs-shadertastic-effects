@@ -48,17 +48,21 @@ VertData VSDefault(VertData v_in)
 // TODO Should be in a included file (need ShaderTastic modifications to allow it)
 /* ************** BEGIN INCLUDE ************** */
 // From https://www.shadertoy.com/view/3lGBDm
+#define font_width 4.0
+#define font_height 6.0
 #define DigitBin(x) ( \
-        x==0?480599.0:\
-        x==1?139810.0:\
-        x==2?476951.0:\
-        x==3?476999.0:\
-        x==4?350020.0:\
-        x==5?464711.0:\
-        x==6?464727.0:\
-        x==7?476228.0:\
-        x==8?481111.0:\
-        x==9?481095.0:\
+        x==0?2454816.0:\
+        x==1?2302576.0:\
+        x==2?2441840.0:\
+        x==3?7611440.0:\
+        x==4?5600320.0:\
+        x==5?7418928.0:\
+        x==6?6370592.0:\
+        x==7?7610640.0:\
+        x==8?6628656.0:\
+        x==9?2450480.0:\
+        x==10?32.0:\
+        x==11?1792.0:\
         0.0 )
 
 float PrintValue( vec2 vStringCoords, float fValue, float fMaxDigits, float fDecimalPlaces )
@@ -74,10 +78,10 @@ float PrintValue( vec2 vStringCoords, float fValue, float fMaxDigits, float fDec
 	float fCharBin = 0.0;
 	if(fDigitIndex > (-fDecimalPlaces - 1.01)) {
 		if(fDigitIndex > fBiggestIndex) {
-			if((bNeg) && (fDigitIndex < (fBiggestIndex+1.5))) fCharBin = 1792.0;
+			if((bNeg) && (fDigitIndex < (fBiggestIndex+1.5))) fCharBin = DigitBin(11);
 		} else {
 			if(fDigitIndex == -1.0) {
-				if(fDecimalPlaces > 0.0) fCharBin = 2.0;
+				if(fDecimalPlaces > 0.0) fCharBin = DigitBin(10);
 			} else {
                 float fReducedRangeValue = fValue;
                 if(fDigitIndex < 0.0) { fReducedRangeValue = fract( fValue ); fDigitIndex += 1.0; }
@@ -86,7 +90,7 @@ float PrintValue( vec2 vStringCoords, float fValue, float fMaxDigits, float fDec
 			}
         }
 	}
-    return floor(mod((fCharBin / pow(2.0, floor(fract(vStringCoords.x) * 4.0) + (floor(vStringCoords.y * 5.0) * 4.0))), 2.0));
+    return floor(mod((fCharBin / pow(2.0, floor(fract(vStringCoords.x) * font_width) + (floor(vStringCoords.y * font_height) * font_width))), 2.0));
 }
 /* ************** END INCLUDE ************** */
 
@@ -113,7 +117,7 @@ float4 EffectLinear(float2 uv)
     fDigits = 6.0;
     fDecimalPlaces = 3.0;
 	float2 vPixelCoord1 = vec2(0.0, 0.0);
-	float fDebugValue1 = rgba_pixel_to_debug.r*256.0;
+	float fDebugValue1 = (rgba_pixel_to_debug.r - rgba_pixel_to_debug.g) *256.0;
     float2 fragCoord = uv / float2(upixel,-vpixel);
     float2 vStringCoords = (fragCoord - vPixelCoord1 - (0.0, -font_size*aspect_ratio)) / vFontSize;
 	float fIsDigit1 = PrintValue(vStringCoords, fDebugValue1, fDigits, fDecimalPlaces);
