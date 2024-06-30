@@ -1,7 +1,5 @@
 {
-  "label": "simple-shapes",
-  "steps": 1,
-  "input_time": false,
+  "label": "Simple Shapes",
   "parameters": [
     {
       "name": "shape_width",
