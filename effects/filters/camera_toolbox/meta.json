@@ -1,7 +1,5 @@
 {
-  "label": "cam-toolbox",
-  "steps": 1,
-  "input_time": false,
+  "label": "Camera Toolbox",
   "parameters": [
     {
       "name": "camera_zoom",
