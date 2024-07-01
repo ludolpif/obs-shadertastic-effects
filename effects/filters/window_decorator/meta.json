@@ -1,0 +1,20 @@
+{
+  "label": "Window Decorator",
+  "parameters": [
+    {
+      "name": "deco_tex",
+      "label": "Decoration texture",
+      "type": "source"
+    },
+    {
+      "name": "deco_scale",
+      "label": "Decoration scale",
+      "type": "double",
+      "slider": true,
+      "min": 0.125,
+      "max": 16.0,
+      "step": 0.01,
+      "default": 1.0
+    }
+  ]
+}
