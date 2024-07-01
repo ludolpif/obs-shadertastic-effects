@@ -1,7 +1,3 @@
-/*
- * This shader contains code from ShaderToy, licensed as CC BY-NC-SA 3.0.
- * So this shader is also CC BY-NC-SA 3.0
- */
 // Common parameters for all shaders, as reference. Do not uncomment this (but you can remove it safely).
 /*
 uniform float time;            // Time since the shader is running. Goes from 0 to 1 for transition effects; goes from 0 to infinity for filter effects
@@ -18,6 +14,7 @@ uniform int pixel_x;
 uniform int pixel_y;
 uniform float font_size;
 
+#include "../../shadertastic-lib/debug/print-value.hlsl"
 //----------------------------------------------------------------------------------------------------------------------
 
 // These are required objects for the shader to work.
@@ -45,83 +42,41 @@ VertData VSDefault(VertData v_in)
     return vert_out;
 }
 
-// TODO Should be in a included file (need ShaderTastic modifications to allow it)
-/* ************** BEGIN INCLUDE ************** */
-// From https://www.shadertoy.com/view/3lGBDm
-#define font_width 4.0
-#define font_height 6.0
-#define DigitBin(x) ( \
-        x==0?2454816.0:\
-        x==1?2302576.0:\
-        x==2?2441840.0:\
-        x==3?7611440.0:\
-        x==4?5600320.0:\
-        x==5?7418928.0:\
-        x==6?6370592.0:\
-        x==7?7610640.0:\
-        x==8?6628656.0:\
-        x==9?2450480.0:\
-        x==10?32.0:\
-        x==11?1792.0:\
-        0.0 )
-
-float PrintValue( vec2 vStringCoords, float fValue, float fMaxDigits, float fDecimalPlaces )
-{
-    if ((vStringCoords.y < 0.0) || (vStringCoords.y >= 1.0)) return 0.0;
-
-    bool bNeg = ( fValue < 0.0 );
-	fValue = abs(fValue);
-
-	float fLog10Value = log2(abs(fValue)) / log2(10.0);
-	float fBiggestIndex = max(floor(fLog10Value), 0.0);
-	float fDigitIndex = fMaxDigits - floor(vStringCoords.x);
-	float fCharBin = 0.0;
-	if(fDigitIndex > (-fDecimalPlaces - 1.01)) {
-		if(fDigitIndex > fBiggestIndex) {
-			if((bNeg) && (fDigitIndex < (fBiggestIndex+1.5))) fCharBin = DigitBin(11);
-		} else {
-			if(fDigitIndex == -1.0) {
-				if(fDecimalPlaces > 0.0) fCharBin = DigitBin(10);
-			} else {
-                float fReducedRangeValue = fValue;
-                if(fDigitIndex < 0.0) { fReducedRangeValue = fract( fValue ); fDigitIndex += 1.0; }
-				float fDigitValue = (abs(fReducedRangeValue / (pow(10.0, fDigitIndex))));
-                fCharBin = DigitBin(int(floor(mod(fDigitValue, 10.0))));
-			}
-        }
-	}
-    return floor(mod((fCharBin / pow(2.0, floor(fract(vStringCoords.x) * font_width) + (floor(vStringCoords.y * font_height) * font_width))), 2.0));
-}
-/* ************** END INCLUDE ************** */
-
 float4 EffectLinear(float2 uv)
 {
-    /* TODO : move those computed uniform values out of the pixel shader */
-    // iResX=1/upixel, so aspect_ratio=iResX/iResY=(1/upixel)/(1/vpixel)=vpixel/upixel
-    float aspect_ratio = vpixel/upixel;
-    float2 vFontSize = font_size * vec2(1.0, aspect_ratio);
-
-    float4 rgba = image.Sample(textureSampler, uv);
     float2 uv_pixel_to_debug = float2(pixel_x*upixel, pixel_y*vpixel);
     float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
+    float4 rgba = image.Sample(textureSampler, uv);
 
-    float3 vColour = rgba.rgb;
-    float fDigits;
-    float fDecimalPlaces;
+    // First example : print a uniform variable with 3 decimals at top right corner of the image
+    // (note : you can't print value that depends on pixel shader's uv)
+    if ( printValue(uv, font_size, float2(1.0, 0.0), 3, font_size) ) {
+        return float4(0.0,1.0,1.0,1.0); /* cyan */
+    }
+    // Second example : print an RGBA value, note: this one returns a color, not a boolean
+    float4 dbg = printRGBA(uv, rgba_pixel_to_debug, float2(1.0, 1.0*font_size), 1, font_size);
+    rgba = mix(rgba, dbg, dbg.a);
 
-    if ( uv[0] > 0.75 && uv[0] < 0.85 && uv[1] > 0.45 && uv[1] < 0.55 ) {
-        return rgba_pixel_to_debug;
+    // Display a red 3x3 pixel square around the pixel to debug, preserving the center pixel
+    float2 uv_pixel = float2(upixel, vpixel);
+    if ( insideBox(uv, uv_pixel_to_debug, uv_pixel_to_debug+uv_pixel ) ) {
+        return rgba;
+    }
+    float2 uv_line_width = uv_pixel * 1.0;
+    if ( insideBox(uv, uv_pixel_to_debug-uv_line_width, uv_pixel_to_debug+uv_pixel+uv_line_width) ) {
+        return red;
     }
 
-    // Print pixel_to_debug red component
-    fDigits = 6.0;
-    fDecimalPlaces = 3.0;
-	float2 vPixelCoord1 = vec2(0.0, 0.0);
-	float fDebugValue1 = (rgba_pixel_to_debug.r - rgba_pixel_to_debug.g) *256.0;
-    float2 fragCoord = uv / float2(upixel,-vpixel);
-    float2 vStringCoords = (fragCoord - vPixelCoord1 - (0.0, -font_size*aspect_ratio)) / vFontSize;
-	float fIsDigit1 = PrintValue(vStringCoords, fDebugValue1, fDigits, fDecimalPlaces);
-	rgba = mix(rgba, vec4(0.0, 1.0, 1.0, 1.0), fIsDigit1);
+    // Display a zoomed area with a red border and filled with the color value of the pixel to debug
+    float2 zoomed_center = (uv_pixel_to_debug - float2(0.5,0.5))/2.0 + float2(0.5, 0.5);
+    float2 zoomed_topLeft = zoomed_center - 32.0*uv_pixel;
+    float2 zoomed_bottomRight = zoomed_center + 32.0*uv_pixel;
+    if ( insideBox(uv, zoomed_topLeft, zoomed_bottomRight) ) {
+        return rgba_pixel_to_debug;
+    }
+    if ( insideBox(uv, zoomed_topLeft-uv_line_width, zoomed_bottomRight+uv_line_width) ) {
+        return red;
+    }
 
     return rgba;
 }
