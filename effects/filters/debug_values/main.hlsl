@@ -10,9 +10,12 @@ uniform int current_step;      // index of current step (for multistep effects)
 */
 
 // Specific parameters of the shader. They must be defined in the meta.json file next to this one.
+uniform float font_size;
+uniform int coord_mode;
+uniform float pixel_u;
+uniform float pixel_v;
 uniform int pixel_x;
 uniform int pixel_y;
-uniform float font_size;
 
 #include "../../shadertastic-lib/debug/print-value.hlsl"
 //----------------------------------------------------------------------------------------------------------------------
@@ -44,11 +47,13 @@ VertData VSDefault(VertData v_in)
 
 float4 EffectLinear(float2 uv)
 {
-    float2 uv_pixel_to_debug = float2(pixel_x*upixel, pixel_y*vpixel);
-    float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
-    float4 rgba = image.Sample(textureSampler, uv);
     float4 red  = float4(1.0,0.0,0.0,1.0);
     float4 cyan = float4(0.0,1.0,1.0,1.0);
+
+    float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
+
+    float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
+    float4 rgba = image.Sample(textureSampler, uv);
 
     // First example : print a uniform variable with 3 decimals at top right corner of the image
     // (note : you can't print value that depends on pixel shader's uv)
