@@ -57,7 +57,7 @@ float4 EffectLinear(float2 uv)
     }
     // Second example : print an RGBA value, note: this one returns a color, not a boolean
     float4 dbg = printRGBA(uv, rgba_pixel_to_debug, float2(1.0, 1.0*font_size), 1, font_size);
-    rgba = mix(rgba, dbg, dbg.a);
+    rgba = lerp(rgba, dbg, dbg.a);
 
     // Display a red 3x3 pixel square around the pixel to debug, preserving the center pixel
     float2 uv_pixel = float2(upixel, vpixel);
