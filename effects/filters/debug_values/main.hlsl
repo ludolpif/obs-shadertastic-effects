@@ -47,11 +47,13 @@ float4 EffectLinear(float2 uv)
     float2 uv_pixel_to_debug = float2(pixel_x*upixel, pixel_y*vpixel);
     float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
+    float4 red  = float4(1.0,0.0,0.0,1.0);
+    float4 cyan = float4(0.0,1.0,1.0,1.0);
 
     // First example : print a uniform variable with 3 decimals at top right corner of the image
     // (note : you can't print value that depends on pixel shader's uv)
     if ( printValue(uv, font_size, float2(1.0, 0.0), 3, font_size) ) {
-        return float4(0.0,1.0,1.0,1.0); /* cyan */
+        return cyan;
     }
     // Second example : print an RGBA value, note: this one returns a color, not a boolean
     float4 dbg = printRGBA(uv, rgba_pixel_to_debug, float2(1.0, 1.0*font_size), 1, font_size);
