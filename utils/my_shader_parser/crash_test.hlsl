@@ -11,7 +11,10 @@ uniform float rand_seed;       // Seed for random functions
 uniform int current_step;      // index of current step (for multistep effects)
 
 // Specific parameters of the shader. They must be defined in the meta.json file next to this one.
-uniform float progression;
+uniform float progression = 1.0;
+const float testing = 1.0;
+pppppppppppppppproperty float testing2 = 1.0;
+unicorn float testing3 = 42.0;
 
 // Additionnal definitions for this shader
 #define PI 3.1415926535
@@ -31,7 +34,7 @@ struct VertData {
 };
 
 struct FragData {
-    float2 uv  : TEXCOORD0;
+    float2 uv  : TEXCOORD0 /* SYNTAX ERROR TESTING HERE (missing ;) */
 };
 
 VertData VSDefault(VertData v_in)
@@ -48,13 +51,12 @@ VertData VSDefault(VertData v_in)
     return vert_out;
 }
 
-// This effect don't use pixel shader at all, it just tweaks the vertex shadeer
 float4 EffectLinear(float2 uv)
 {
     float4 rgba = image.Sample(textureSampler, uv);
 /* CRASH TEST HERE */
-    // rgba.a = undefined_var;
-    // if (true) {
+    rgba.a = undefined_var;
+    //if (true) {
 /* CRASH TEST HERE */
     return rgba;
 }
