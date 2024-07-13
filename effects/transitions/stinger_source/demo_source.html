@@ -94,6 +94,11 @@
         window.requestAnimationFrame(step);
       };
       window.addEventListener('obsSceneChanged', initialize);
+      window.addEventListener('obsSceneListChanged', initialize);
+      window.addEventListener('obsTransitionChanged', initialize);
+      window.addEventListener('obsTransitionListChanged', initialize);
+      window.addEventListener('obsSourceVisibleChanged', initialize);
+      window.addEventListener('obsSourceActiveChanged', initialize);
       initialize();
     </script>
   </body>
