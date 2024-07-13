@@ -1,0 +1,10 @@
+{
+  "label": "Stinger source",
+  "parameters": [
+    {
+      "name": "tex_fillkey",
+      "label": "Fill/Key side-by-side source",
+      "type": "source"
+    }
+  ]
+}
