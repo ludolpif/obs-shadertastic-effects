@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+  <body style="background-color: rgba(0, 0, 0, 0); margin: 0px;">
+    <canvas id="transition"></canvas>
+    <script>
+      const w = 1920; //px
+      const h = 1080;
+      const logo_w = 300;
+      const logo_h = 300;
+      const duration = 3000; //ms
+      
+      // Canvas setup
+      const canvas = document.getElementById("transition");
+      const ctx = canvas.getContext("2d");
+      ctx.canvas.width = 2*w;
+      ctx.canvas.height = h;
+      
+      let start, previousTimeStamp;
+      let done = false;
+      function step(timeStamp) {
+        if (start === undefined) {
+          start = timeStamp;
+        }
+        const elapsed = timeStamp - start;
+        const progression = elapsed / duration;
+      
+        if (previousTimeStamp !== timeStamp) {
+          // Clear (to transparent) everything
+          ctx.clearRect(0,0,2*w,h);
+      
+          // Left side, "fill" (transparent regions = see "key", opaque regions = will be printed on top of the transition)
+          /* debug inital rectangle
+          ctx.beginPath();
+          ctx.rect(0,0,w,h);
+          ctx.stroke(); */
+      
+          ctx.beginPath();
+          //ctx.rect((w-logo_w)/2+progression*300,(h-logo_h)/2,logo_w,logo_h);
+          ctx.rect((w+2*logo_w)*progression-logo_w,(h-logo_h)/2,logo_w,logo_h);
+          ctx.fillStyle = "blue";
+          ctx.fill();
+          ctx.stroke();
+      
+          // Right side, "key" (black = scene A, white = scene B, gray = mixed)
+          ctx.beginPath();
+          ctx.fillStyle = "rgb("+progression*255+","+progression*255+","+progression*255+")";
+          ctx.rect(w,0,w,h);
+          ctx.fill();
+        }
+      
+        if (elapsed < duration) {
+          previousTimeStamp = timeStamp;
+        } else {
+          // Infinite replay for now
+          start = timeStamp;
+          previousTimeStamp = undefined;
+        }
+        if (!done) {
+          window.requestAnimationFrame(step);
+        }
+      }
+      window.requestAnimationFrame(step);
+    </script>
+  </body>
+</html>

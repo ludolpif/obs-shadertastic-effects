@@ -1,5 +1,6 @@
 {
   "label": "Stinger source",
+  "revision": 1,
   "parameters": [
     {
       "name": "tex_fillkey",
