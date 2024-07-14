@@ -4,102 +4,142 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   </head>
-  <body style="background-color: rgba(0, 0, 0, 0); margin: 0px;">
-    <div id="debug" style="color: red"></div>
-    <canvas id="transition"></canvas>
+  <body style="background-color: rgba(0,0,0,0); margin: 0px;">
+    <ul id="debug" style="position: absolute; color: red; font-size: 48px;"></ul>
+    <canvas id="stinger"></canvas>
     <script>
+      // User customizable settings
       const w = 1920; //px
       const h = 1080;
       const logo_w = 300;
       const logo_h = 300;
       const duration = 3000; //ms
+      const restingDelay = 500; //ms
 
-      /* Debug OBS events
+      // Global vars you should use to draw and debugOnScreen() with it
       const debug = document.getElementById("debug");
-      traceEvent = function(event) {
-        var t;
-        if ( event ) {
-          t = document.createTextNode(event.detail.name + " " + JSON.stringify(event.detail));
-        } else {
-          t = new Date();
-          window.setTimeout(traceEvent, 5000, null);
-        };
-        debug.appendChild(t);
-        debug.appendChild(document.createElement('br'));
-      };
-      window.addEventListener('obsSceneChanged', traceEvent);
-      window.addEventListener('obsSceneListChanged', traceEvent);
-      window.addEventListener('obsTransitionChanged', traceEvent);
-      window.addEventListener('obsTransitionListChanged', traceEvent);
-      window.addEventListener('obsSourceVisibleChanged', traceEvent);
-      window.addEventListener('obsSourceActiveChanged', traceEvent);
-      window.setTimeout(traceEvent, 5000, null);
-      */
-      // Canvas setup
-      const canvas = document.getElementById("transition");
+      const canvas = document.getElementById("stinger");
       const ctx = canvas.getContext("2d");
-      ctx.canvas.width = 2*w;
-      ctx.canvas.height = h;
+      var state; // undefined: setuping, 1: waiting, 2: starting, 3: doing, 4: resting
+      var startTimeStamp, previousTimeStamp; // ms
 
-      let start, previousTimeStamp;
-      let done = false;
+      // Make your custom draw calls here !
+      // transitionStep() will be called with :
+      //   first with progression = 0.0 then at browser refresh rate and a last time with progression = 1.0
+      //   elapsed : milliseconds from transition start. On last call, it may be a little grater than const duration setting.
+      function transitionStep(progression, elapsed) {
+        // Clear (to transparent) everything
+        ctx.clearRect(0,0,2*w,h);
 
-      function step(timeStamp) {
-        if (start === undefined) {
-          start = timeStamp;
+        // Left side, "fill" (opaque regions = will be printed unconditionally, transparent regions = see "key")
+        // left, top, width, height = (0,0,w,h)
+        ctx.beginPath();
+        ctx.rect((w+logo_w)*progression-logo_w,(h-logo_h)/2,logo_w,logo_h);
+        ctx.fillStyle = "blue";
+        ctx.fill();
+        ctx.stroke();
+
+        // Right side, "key" (black = scene A, white = scene B, gray = mixed)
+        // left, top, width, height = (w,0,w,h)
+        ctx.beginPath();
+        ctx.fillStyle = "rgb("+progression*255+","+progression*255+","+progression*255+")";
+        ctx.rect(w,0,w,h);
+        ctx.fill();
+      }
+      // You shouldn't need to customize code below this line
+
+      function debugOnScreen(text) {
+        const ts = (new Date()).toLocaleTimeString([], {
+          hourCycle: 'h23',
+          hour: '2-digit',
+          minute: '2-digit',
+          fractionalSecondDigits: 3
+        });
+        const line = ts + " " + text;
+        console.log(line);
+        const li = document.createElement('li');
+        li.appendChild(document.createTextNode(line));
+        debug.insertBefore(li, debug.firstChild);
+      }
+
+      function setState(newState) {
+        //debugOnScreen("changing state from " + state + " to " + newState);
+        state = newState;
+      }
+
+      function updateState(timeStamp) {
+        // https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame
+        window.requestAnimationFrame(updateState);
+
+        if ( state === undefined /* setuping */) {
+          ctx.canvas.width = 2*w;
+          ctx.canvas.height = h;
+          setupOBSHooks();
+          setState(1);
+          return; /* may called from main without timeStamp, wait next call from requestAnimationFrame to eval next state */
         }
-        const elapsed = timeStamp - start;
-        const progression = elapsed / duration;
+        if ( state === 1 /* waiting */ ) {
+          // If running from OBS, this state will be changed by an event listener
+          // FIXME it isn't implemented yet
+          setState(2);
 
-        if (previousTimeStamp !== timeStamp) {
-          // Clear (to transparent) everything
-          ctx.clearRect(0,0,2*w,h);
-
-          // Left side, "fill" (transparent regions = see "key", opaque regions = will be printed on top of the transition)
-          /* debug inital rectangle
-          ctx.beginPath();
-          ctx.rect(0,0,w,h);
-          ctx.stroke(); */
-
-          ctx.beginPath();
-          ctx.rect((w+logo_w)*progression-logo_w,(h-logo_h)/2,logo_w,logo_h);
-          ctx.fillStyle = "blue";
-          ctx.fill();
-          ctx.stroke();
-
-          // Right side, "key" (black = scene A, white = scene B, gray = mixed)
-          ctx.beginPath();
-          ctx.fillStyle = "rgb("+progression*255+","+progression*255+","+progression*255+")";
-          ctx.rect(w,0,w,h);
-          ctx.fill();
+          // If trying this page in a regular browser, start immediately
+          if ( !window.obsstudio ) {
+            setState(2);
+          }
         }
-
-        if (elapsed < duration) {
-          previousTimeStamp = timeStamp;
-        } else {
-          /* Infinite replay for now (missing start Transition OBS event)
-          start = timeStamp;
+        if ( state === 2 /* starting */ ) {
+          startTimeStamp = timeStamp;
           previousTimeStamp = undefined;
-          */
-          done = true;
+          setState(3);
+          // And evaluate next state immediatly to make transitionStep at progression 0
         }
-        if (!done) {
-          window.requestAnimationFrame(step);
+        if ( state === 3 /* doing */ ) {
+          const elapsed = timeStamp - startTimeStamp;
+          const progression = Math.min(elapsed / duration, 1.0);
+          transitionStep(progression, elapsed);
+
+          if (elapsed < duration) {
+            previousTimeStamp = timeStamp;
+          } else {
+            setState(4);
+            return; // No need to immediately evaluate next state
+          }
+        }
+        if ( state === 4 /* resting */ ) {
+          elapsed = timeStamp - startTimeStamp;
+          if (elapsed > duration + restingDelay) {
+            setState(1);
+          }
         }
       }
-      const initialize = function() {
-        start = undefined;
-        previousTimeStamp = undefined;
-        done = false;
-        window.requestAnimationFrame(step);
-      };
-      window.addEventListener('obsSceneChanged', initialize);
-      window.addEventListener('obsSceneListChanged', initialize);
-      window.addEventListener('obsTransitionChanged', initialize);
-      window.addEventListener('obsTransitionListChanged', initialize);
-      window.addEventListener('obsSourceVisibleChanged', initialize);
-      window.addEventListener('obsSourceActiveChanged', initialize);
-      initialize();
+
+      function setupOBSHooks() {
+        if ( !window.obsstudio ) {
+          debugOnScreen("Not running into OBS browser source, cannot hook OBS events");
+          return;
+        }
+        // FIXME we need a obsSceneChanging event (start of tarnsition, not end of transition)
+        window.addEventListener('obsSceneChanged', function() { setState(2); });
+        /*
+        var controlLevelFromOBS;
+        window.obsstudio.getControlLevel(function (level) {
+          controlLevelFromOBS = level;
+          if ( level < 2 ) {
+            debugOnScreen("Please set Page permissions in Browser source properties to 'Read access to user information'");
+          }
+        });
+        window.addEventListener('obsSourceVisibleChanged', traceEvent);
+        window.addEventListener('obsSceneListChanged', traceEvent);
+        window.addEventListener('obsTransitionChanged', traceEvent);
+        window.addEventListener('obsTransitionListChanged', traceEvent);
+        window.addEventListener('obsSourceActiveChanged', traceEvent);
+        window.setTimeout(traceEvent, 5000, null);
+        */
+      }
+
+      // Run everything
+      updateState(null);
     </script>
   </body>
 </html>
