@@ -1,10 +1,10 @@
 {
-  "label": "Stinger source",
+  "label": "Stinger HTML Transition",
   "revision": 1,
   "parameters": [
     {
       "name": "tex_fillkey",
-      "label": "Fill/Key side-by-side source",
+      "label": "Browser source displaying Stinger",
       "type": "source"
     }
   ]
