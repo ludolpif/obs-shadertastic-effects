@@ -1,0 +1,32 @@
+{
+  "label": "Square flip",
+  "revision": 1,
+  "parameters": [
+    {
+      "name": "columns",
+      "label": "Tiles column count",
+      "type": "double",
+      "slider": true,
+      "min": 1.0,
+      "max": 128.0,
+      "step": 1.0,
+      "default": 16.0
+    },
+    {
+      "name": "phase_shift",
+      "label": "Phase shift",
+      "type": "double",
+      "slider": true,
+      "min": 0.0,
+      "max": 8.0,
+      "step": 0.01,
+      "default": 4.0
+    },
+    {
+      "name": "bg_color",
+      "label": "Background color",
+      "type": "color",
+      "default": "#FF000000"
+    }
+  ]
+}
