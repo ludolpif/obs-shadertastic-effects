@@ -61,7 +61,10 @@ VertDataOut VSDefault(VertDataIn v_in)
     float4 v_interm_pos = float4(v_in.pos.xyz,1.0);
     v_interm_pos.xy = (v_interm_pos.xy - deco_scaled/2.0) * total_ratio;
 
-    vert_out.pos = mul(v_interm_pos, ViewProj);
+    float4x4 vp = ViewProj;
+    vp[1][3] = 0.0; // translation on y-axis on OBS linux
+    vp[0][3] = 0.5; // translation on x-axis on OBS linux
+    vert_out.pos = mul(v_interm_pos, vp);
 
     vert_out.uv = (v_in.uv - deco_ratio/2.0) * total_ratio;
     vert_out.uv1 = v_in.uv / deco_ratio;
