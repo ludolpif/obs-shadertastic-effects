@@ -28,14 +28,19 @@
 	exitcode = code; \
 	goto label; } while(0)
 
-int main(void) {
+void usage(char *progname, int exitval) {
+    fprintf(stderr, "%s <path-to-hlsl>\n", progname);
+    exit(exitval);
+}
+
+int main(int argc, char *argv[]) {
 #if defined(SDL_VIDEO_DRIVER_X11)
 	setenv("SDL_VIDEODRIVER", "x11", 1);
 #else
 #error "This program has been tried only for X11 for now. Feel free to improve it !"
 #endif
 	int exitcode = 0;
-
+    if ( argc < 2 ) usage(argv[0], 1);
 	/*
 	// Init SDL, get X11 display pointer
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) sdl_abort(SDL_Init, 2, mainexit);
@@ -69,10 +74,22 @@ int main(void) {
 
 
 	// Load shader file as effect_string
-	char *effect_file = "crash_test.hlsl";
+	char *effect_file = argv[1];
 	int fd = open(effect_file, O_RDONLY);
-	int len = lseek(fd, 0, SEEK_END);
+    if ( fd == -1 ) {
+        perror("open(effect_file, O_RDONLY)");
+        usage(argv[0], 1);
+    }
+	off_t len = lseek(fd, 0, SEEK_END);
+    if ( len == (off_t) -1 ) {
+        perror("lseek(<effect_file>, 0, SEEK_END)");
+        usage(argv[0], 1);
+    }
 	const char *effect_string = mmap(0, len, PROT_READ, MAP_PRIVATE, fd, 0);
+    if ( effect_string == MAP_FAILED ) {
+        perror("mmap(0, len, PROT_READ, MAP_PRIVATE, <effect_file>, 0)");
+        usage(argv[0], 1);
+    }
 
 	// fprintf(stdout, effect_string);
 
@@ -147,6 +164,7 @@ gs_effect_t *gs_effect_create(const char *effect_string, const char *filename,
 
 	da_push_back(cfp_lex_reformatted_lines_idx, &eof_hint); // Last line + 1
 
+    blog(LOG_INFO, "parser.cfp.error_list.errors.num == %lu", parser.cfp.error_list.errors.num);
 
 	for (int i=0; i < parser.cfp.error_list.errors.num; i++) {
 
@@ -154,8 +172,7 @@ gs_effect_t *gs_effect_create(const char *effect_string, const char *filename,
 		const struct error_item *ei = error_data_item(&parser.cfp.error_list, i);
 		if ( ei->row > 0 && ei->row < cfp_lex_reformatted_lines_idx.num ) {
 			const char **line;
-			int context_start = ei->row;
-			context_start = max(0, context_start - 6);
+			int context_start = max(0, ei->row - 6);
 
 			for (int r = context_start; r < ei->row; r++ ) {
 				line = (const char **) darray_item(sizeof(const char *), &cfp_lex_reformatted_lines_idx.da, r);
@@ -176,8 +193,7 @@ gs_effect_t *gs_effect_create(const char *effect_string, const char *filename,
 
 		if ( ei->row > 0 && ei->row < cfp_lex_reformatted_lines_idx.num ) {
 			const char **line;
-			int context_end = ei->row;
-			context_end = min(context_end + 4, cfp_lex_reformatted_lines_idx.num);
+			int context_end = min(ei->row + 4, cfp_lex_reformatted_lines_idx.num);
 			for (int r = ei->row+1; r < context_end; r++ ) {
 				line = (const char **) darray_item(sizeof(const char *), &cfp_lex_reformatted_lines_idx.da, r);
 				blog(LOG_ERROR, "%s", *line);
@@ -185,6 +201,17 @@ gs_effect_t *gs_effect_create(const char *effect_string, const char *filename,
 		}
 		blog(LOG_ERROR, "----->8--------------------------------------->8-----");
 	}
+	if ( !ep_parse_result && parser.cfp.error_list.errors.num == 0 ) {
+
+		blog(LOG_ERROR, "-----8<----- Shader lex reformatted lines -----8<-----");
+        const char **line;
+        for (int r = 0; r < cfp_lex_reformatted_lines_idx.num; r++ ) {
+            line = (const char **) darray_item(sizeof(const char *), &cfp_lex_reformatted_lines_idx.da, r);
+            blog(LOG_ERROR, "[%4i] %s", r, *line);
+        }
+		blog(LOG_ERROR, "----->8---------------------------------------->8-----");
+	}
+
 
 	da_free(cfp_lex_reformatted_lines_idx);
 	bfree(effect_string_reformated_copy);
