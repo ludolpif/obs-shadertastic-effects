@@ -47,8 +47,8 @@ VertData VSDefault(VertData v_in)
 
 float4 EffectLinear(float2 uv)
 {
-    float4 red  = float4(1.0,0.0,0.0,1.0);
-    float4 cyan = float4(0.0,1.0,1.0,1.0);
+    float4 color_red  = float4(1.0,0.0,0.0,1.0);
+    float4 color_cyan = float4(0.0,1.0,1.0,1.0);
 
     float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
 
@@ -58,7 +58,7 @@ float4 EffectLinear(float2 uv)
     // First example : print a uniform variable with 3 decimals at top right corner of the image
     // (note : you can't print value that depends on pixel shader's uv)
     if ( printValue(uv, font_size, float2(1.0, 0.0), 3, font_size) ) {
-        return cyan;
+        return color_cyan;
     }
     // Second example : print an RGBA value, note: this one returns a color, not a boolean
     float4 dbg = printRGBA(uv, rgba_pixel_to_debug, float2(1.0, 1.0*font_size), 1, font_size);
@@ -71,7 +71,7 @@ float4 EffectLinear(float2 uv)
     }
     float2 uv_line_width = uv_pixel * 1.0;
     if ( insideBox(uv, uv_pixel_to_debug-uv_line_width, uv_pixel_to_debug+uv_pixel+uv_line_width) ) {
-        return red;
+        return color_red;
     }
 
     // Display a zoomed area with a red border and filled with the color value of the pixel to debug
@@ -82,7 +82,7 @@ float4 EffectLinear(float2 uv)
         return rgba_pixel_to_debug;
     }
     if ( insideBox(uv, zoomed_topLeft-uv_line_width, zoomed_bottomRight+uv_line_width) ) {
-        return red;
+        return color_red;
     }
 
     return rgba;

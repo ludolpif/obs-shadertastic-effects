@@ -5,14 +5,15 @@ ascii_repr='.0123456789?abcdefghijklmnopqrstuvwxyz-'
 zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x11_names_regex)$" \
 	| awk --non-decimal-data -v ascii_repr="$ascii_repr" \
 	'BEGIN {
+        for(n=0;n<256;n++)ord[sprintf("%c",n)]=n;
 		char_indice=1; font_width=4; font_height=6; def=0;
 		indent="    "; indent2="        ";
 		print "// int font_width = " font_width ";"
 		print "// int font_height = " font_height ";"
-		print "float printValue__digitBin(int x) {"
+		print "float printValue_digitBin(int x) {"
 		print indent "return ("
 	}
-	/^STARTCHAR/ { character=0; printf indent2 "x=='\''" substr(ascii_repr,char_indice,1) "'\''?" }
+    /^STARTCHAR/ { character=0; ascii_char=substr(ascii_repr,char_indice,1); printf indent2 "/* " ascii_char " */ x==" ord[ascii_char] "?" }
 	/^BITMAP/ { line_number=font_height }
 	/^..$/ { if (line_number > 0 ) {
 		parsed = sprintf("%d", "0x" $1)
@@ -30,7 +31,7 @@ zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x
 		char_indice = char_indice+1;
 	}
 	END {
-		print indent2 def ".0";
+		print indent2 "/* default: ? */ " def ".0";
 		print indent ");"
 		; print "}"
 	}
