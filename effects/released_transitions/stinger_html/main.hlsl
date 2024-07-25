@@ -41,12 +41,12 @@ struct FragData {
     float2 uv_key : TEXCOORD2;
 };
 
-VertDataOut VSDefault(VertData v_in)
+VertDataOut VSMultipleUV(VertData v_in)
 {
     VertDataOut vert_out;
     vert_out.uv  = v_in.uv;
-    vert_out.uv_fill  = float2(v_in.uv[0]/2, v_in.uv[1]);
-    vert_out.uv_key  = float2(0.5+v_in.uv[0]/2, v_in.uv[1]);
+    vert_out.uv_fill = float2(v_in.uv[0]/2, v_in.uv[1]);
+    vert_out.uv_key = float2(0.5+v_in.uv[0]/2, v_in.uv[1]);
     vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
     return vert_out;
 }
@@ -84,7 +84,7 @@ technique Draw
 {
     pass
     {
-        vertex_shader = VSDefault(v_in);
+        vertex_shader = VSMultipleUV(v_in);
         pixel_shader = PSEffect(f_in);
     }
 }
@@ -93,7 +93,7 @@ technique DrawLinear
 {
     pass
     {
-        vertex_shader = VSDefault(v_in);
+        vertex_shader = VSMultipleUV(v_in);
         pixel_shader = PSEffectLinear(f_in);
     }
 }

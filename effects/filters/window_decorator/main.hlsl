@@ -48,7 +48,7 @@ float2 dim(Texture2D textureObj)
 	return float2(width, height);
 }*/
 
-VertDataOut VSDefault(VertDataIn v_in)
+VertDataOut VSWithBorders(VertDataIn v_in)
 {
     VertDataOut vert_out;
     float2 image_dim = float2(1920.0,1080.0);
@@ -120,7 +120,7 @@ technique Draw
 {
     pass
     {
-        vertex_shader = VSDefault(v_in);
+        vertex_shader = VSWithBorders(v_in);
         pixel_shader = PSEffect(f_in);
     }
 }

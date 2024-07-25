@@ -32,7 +32,7 @@ struct FragData {
     float2 uv  : TEXCOORD0;
 };
 
-VertData VSDefault(VertData v_in)
+VertData VSMirror(VertData v_in)
 {
     VertData vert_out;
     vert_out.uv  = v_in.uv;
@@ -65,7 +65,7 @@ technique Draw
 {
     pass
     {
-        vertex_shader = VSDefault(v_in);
+        vertex_shader = VSMirror(v_in);
         pixel_shader = PSEffect(f_in);
     }
 }

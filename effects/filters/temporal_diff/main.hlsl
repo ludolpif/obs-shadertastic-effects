@@ -40,10 +40,11 @@ VertData VSDefault(VertData v_in)
 float4 EffectLinear(float2 uv)
 {
     float4 curr = image.Sample(textureSampler, uv);
-    float4 prev = prev_tex.Sample(textureSampler, uv+float2(1.0*upixel,0.0*vpixel));
+    float4 prev = prev_tex.Sample(textureSampler, uv);
+    //float4 prev = prev_tex.Sample(textureSampler, uv+float2(1.0*upixel,0.0*vpixel));
 
-    return max(curr, prev);
-    //return float4(abs(curr.rgb - prev.rgb),max(curr.a, prev.a));
+    //return max(curr, prev);
+    return float4(abs(curr.rgb - prev.rgb),max(curr.a, prev.a));
 }
 
 // You probably don't want to change anything from this point.

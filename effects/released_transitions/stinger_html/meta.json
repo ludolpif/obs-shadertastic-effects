@@ -1,6 +1,6 @@
 {
   "label": "Stinger HTML Transition",
-  "revision": 1,
+  "revision": 2,
   "parameters": [
     {
       "name": "tex_fillkey",

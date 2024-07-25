@@ -36,13 +36,7 @@ VertData VSDefault(VertData v_in)
 {
     VertData vert_out;
     vert_out.uv  = v_in.uv;
-
-    // Mirror effect done via vert_out.pos.x modification
-    float half_width = 1.0/upixel/2.0;
-    float v_mirror_pos_x = (v_in.pos.x-half_width)*cos(progression*PI)+half_width ;
-    float4 v_miror = float4(v_mirror_pos_x, v_in.pos.y, v_in.pos.z, 1.0);
-
-    vert_out.pos = mul(v_miror, ViewProj);
+    vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
     return vert_out;
 }
 
