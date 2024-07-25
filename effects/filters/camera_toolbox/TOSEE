@@ -1,0 +1,167 @@
+
+A envisager d'ajouter :
+https://marcodiiga.github.io/radial-lens-undistortion-filtering
+https://www.shadertoy.com/view/XtVSzz
+https://www.shadertoy.com/view/lstyzs
+
+OpenCV tuto pour camera calibrations
+https://learnopencv.com/understanding-lens-distortion/
+
+Article Zeiss qui donne tous le stypes de distortion
+https://lenspire.zeiss.com/photo/app/uploads/2022/02/technical-article-distortion.pdf
+Not all strange geometry is caused by distortion
+	projections de spheres sur le plan
+
+GIMP utilise GEGL pour 
+https://docs.gimp.org/2.8/en/plug-in-lens-distortion.html
+/tmp/gegl-0.4.42/operations/common-gpl3+/lens-distortion.c
+
+property_double (main, _("Main"), 0.0)
+    description (_("Amount of second-order distortion"))
+    value_range (-100.0, 100.0)
+
+property_double (edge, _("Edge"), 0.0)
+    description (_("Amount of fourth-order distortion"))
+    value_range (-100.0, 100.0)
+
+property_double (zoom, _("Zoom"), 0.0)
+    description (_("Rescale overall image size"))
+    value_range (-100, 100.0)
+
+property_double (x_shift, _("Shift X"), 0.0)
+    description (_("Effect center offset in X"))
+    value_range (-100.0, 100.0)
+
+property_double (y_shift, _("Shift Y"), 0.0)
+    description (_("Effect center offset in Y"))
+    value_range (-100.0, 100.0)
+
+property_double (brighten, _("Brighten"), 0.0)
+    description (_("Adjust brightness in corners"))
+    value_range (-100.0, 100.0)
+
+property_color  (background, _("Background color"), "none")
+
+
+static void lens_get_source_coord (gdouble i, gdouble j, gdouble *x, gdouble *y, gdouble *mag, LensValues *lens) {
+	gdouble radius_sq, off_x, off_y, radius_mult;
+	off_x = i - lens->centre_x;
+	off_y = j - lens->centre_y;
+	radius_sq = SQR (off_x) + SQR (off_y);
+	radius_sq *= lens->norm;
+	radius_mult = radius_sq * lens->mult_sq + SQR (radius_sq) * lens->mult_qd;
+	*mag = radius_mult;
+	radius_mult = lens->rescale * (1.0 + radius_mult);
+	*x = lens->centre_x + radius_mult * off_x;
+	*y = lens->centre_y + radius_mult * off_y;
+}
+
+static void lens_distort_func (gfloat *src_buf, gfloat *dst_buf, const GeglRectangle *extended, const GeglRectangle *result, const GeglRectangle *boundary, LensValues *lens, gint xx, gint yy, GeglSampler *sampler, gfloat *background, gint level)
+{
+  gdouble sx, sy, mag;
+  gdouble brighten;
+  gfloat  pixel_buffer [16 * 4], temp[4];
+  gdouble dx, dy;
+  gint    x_int, y_int, x = 0, y = 0, offset = 0;
+
+  temp[0] = temp[1] = temp[2] = temp[3] = 0.0;
+
+  lens_get_source_coord ((gdouble) xx, (gdouble) yy, &sx, &sy, &mag, lens);
+  /* pseudo gamma transformation, since the input is scRGB */
+  brighten = pow (MAX (1.0 + mag * lens->brighten, 0.0), 2.4);
+
+  x_int = floor (sx);
+  dx = sx - x_int;
+
+  y_int = floor (sy);
+  dy = sy - y_int;
+
+  for (y = y_int - 1; y <= y_int + 2; y++) {
+    for (x = x_int - 1; x <= x_int + 2; x++) {
+      gint b;
+      if (x < boundary->x || x >= (boundary->x + boundary->width) ||
+          y < boundary->y || y >= (boundary->y + boundary->height)) {
+        for (b = 0; b < 4; b++)
+          pixel_buffer[offset++] = background[b];
+      } else {
+        if (x >= extended->x && x < (extended->x + extended->width) &&
+            y >= extended->y && y < (extended->y + extended->height)) {
+          gint src_off;
+          src_off = (y - extended->y) * extended->width * 4 + (x - extended->x) * 4;
+
+          for (b = 0; b < 4; b++)
+            temp[b] = src_buf[src_off++];
+        } else {
+          gegl_sampler_get (sampler, x, y, NULL, temp, GEGL_ABYSS_CLAMP);
+        }
+        for (b = 0; b < 4; b++)
+          pixel_buffer[offset++] = temp[b];
+      }
+    }
+  }
+  lens_cubic_interpolate (pixel_buffer, temp, dx, dy, brighten);
+
+  offset = (yy - result->y) * result->width * 4 + (xx - result->x) * 4;
+  for (x = 0; x < 4; x++)
+    dst_buf[offset++] = temp[x];
+}
+
+static gboolean process (GeglOperation *operation, GeglBuffer *input, GeglBuffer *output, const GeglRectangle *result, gint level) {
+  GeglProperties *o      = GEGL_PROPERTIES (operation);
+  const Babl     *space  = gegl_operation_get_format (operation, "output");
+  const Babl     *format = babl_format_with_space ("RaGaBaA float", space);
+  GeglSampler    *sampler;
+  LensValues      lens;
+  GeglRectangle   boundary;
+  gint            i, j;
+  gfloat         *src_buf, *dst_buf;
+  gfloat          background[4];
+
+  sampler  = gegl_buffer_sampler_new_at_level (input, babl_format_with_space ("RGBA float", space), GEGL_SAMPLER_LINEAR, level);
+  boundary = *gegl_operation_source_get_bounding_box (operation, "input");
+  lens     =  lens_setup_calc (o, boundary);
+
+  src_buf = g_new0 (gfloat, SQR (MAX_WH) * 4);
+  dst_buf = g_new0 (gfloat, SQR (CHUNK_SIZE) * 4);
+
+  gegl_color_get_pixel (o->background, format, background);
+
+  for (j = 0; (j-1) * CHUNK_SIZE < result->height; j++)
+    for (i = 0; (i-1) * CHUNK_SIZE < result->width; i++)
+    {
+      GeglRectangle chunked_result;
+      GeglRectangle area;
+      gint          x, y;
+
+      chunked_result = *GEGL_RECTANGLE (result->x + i * CHUNK_SIZE, result->y + j * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
+
+      gegl_rectangle_intersect (&chunked_result, &chunked_result, result);
+
+      if (chunked_result.width < 1  || chunked_result.height < 1)
+        continue;
+
+      area = get_required (&boundary, &chunked_result, operation);
+
+      clamp_area (&area, lens.centre_x, lens.centre_y);
+
+      gegl_buffer_get (input, &area, 1.0, format, src_buf, GEGL_AUTO_ROWSTRIDE, GEGL_ABYSS_CLAMP);
+
+      for (y = chunked_result.y; y < chunked_result.y + chunked_result.height; y++)
+        for (x = chunked_result.x; x < chunked_result.x + chunked_result.width; x++)
+        {
+          lens_distort_func (src_buf, dst_buf, &area, &chunked_result, &boundary,
+              &lens, x, y, sampler, background, level);
+        }
+
+      gegl_buffer_set (output, &chunked_result, 0, format,
+          dst_buf, GEGL_AUTO_ROWSTRIDE);
+    }
+
+  g_free (dst_buf);
+  g_free (src_buf);
+
+  g_object_unref (sampler);
+
+  return TRUE;
+}
+
