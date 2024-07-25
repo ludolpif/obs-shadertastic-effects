@@ -2,10 +2,5 @@
   "label": "Temporal diff",
   "revision": 1,
   "parameters": [
-    {
-      "name": "prev_tex",
-      "label": "Please select current filter's source for feedback loop",
-      "type": "source"
-    }
   ]
 }

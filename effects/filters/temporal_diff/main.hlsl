@@ -8,8 +8,8 @@ uniform float vpixel;          // Height of a pixel in the UV space
 uniform float rand_seed;       // Seed for random functions
 uniform int current_step;      // index of current step (for multistep effects)
 */
-// Specific parameters of the shader. They must be defined in the meta.json file next to this one.
-uniform texture2d prev_tex;
+// Experimental new common parameters
+// uniform texture2d prev_tex;
 //----------------------------------------------------------------------------------------------------------------------
 
 // These are required objects for the shader to work.
@@ -39,9 +39,11 @@ VertData VSDefault(VertData v_in)
 
 float4 EffectLinear(float2 uv)
 {
-    float4 rgba = image.Sample(textureSampler, uv);
-    float4 rgba2 = prev_tex.Sample(textureSampler, uv);
-    return float4(clamp(abs(rgba.rgb - rgba2.rgb),float3(0.0),float3(1.0)),max(rgba.a, rgba2.a));
+    float4 curr = image.Sample(textureSampler, uv);
+    float4 prev = prev_tex.Sample(textureSampler, uv+float2(1.0*upixel,0.0*vpixel));
+
+    return max(curr, prev);
+    //return float4(abs(curr.rgb - prev.rgb),max(curr.a, prev.a));
 }
 
 // You probably don't want to change anything from this point.
