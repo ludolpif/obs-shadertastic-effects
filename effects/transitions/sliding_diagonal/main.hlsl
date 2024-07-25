@@ -42,14 +42,14 @@ VertData VSDefault(VertData v_in)
 
 float4 EffectLinear(float2 uv)
 {
-    float2 uv_a = uv; 
-    float2 uv_b = uv; 
+    float2 uv_a = uv;
+    float2 uv_b = uv;
     /*                      negative diagonal term + sliding */
     uv_a[0] = uv_a[0] + max(0.0, 0.5*(uv_a[1]-1.0) + 1.5*time);
 
     float4 col_a = tex_a.Sample(textureSampler, uv_a);
     float4 col_b = tex_b.Sample(textureSampler, uv_b);
-    
+
     return (uv_a[0]>1.0)?col_b:col_a;
 }
 //----------------------------------------------------------------------------------------------------------------------
