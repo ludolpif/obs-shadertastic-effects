@@ -224,8 +224,6 @@ Remarques :
 - `obs_source_dosignal(transition, "source_transition_start", "transition_start");`
 - https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md#scenetransitionstarted
 
-https://discord.com/channels/1118094149846044724/1118682945700499526/1262421425923297311
-
 # obs-shadertastic-effects/effects/filters/cam_toolbox
 
 - [ ] ajouter correction / amplification effets lentille :
