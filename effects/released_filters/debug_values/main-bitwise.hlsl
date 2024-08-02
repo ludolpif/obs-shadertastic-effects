@@ -153,7 +153,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
         out int sign, out int exp, out int mant, out float expf, out int2 fixed_point, out int dcb_digit)
 {
     // Floats numbers are coded in IEEE754 in a way roughly representable as sign*2^expf*(1+mantissa_fractionnal)
-	sign = ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
+    sign = ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
     // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
     if ( float_to_decode == 0.0 ) {
         expf = -126.0;
@@ -166,7 +166,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
         expf = float_to_decode; // non-finite value as a placeholder
         exp = 255;
         fixed_point = int2(0,0);
-		dcb_digit = (wanted_digit>5 && wanted_digit<9)
+        dcb_digit = (wanted_digit>5 && wanted_digit<9)
             ?isnan(float_to_decode)?10:15
             :(wanted_digit==4 && sign==-1)?13:12; // for +/-NaN or +/-inf
         return;
@@ -177,8 +177,8 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     int expi = int(expf); // int exponent without -127 offset (internal use)
     exp = expi + 127; // IEEE754 encoded 8bits-wide exponent (out parameter)
 
-	// Extract the mantissa bit per bit, compute the fixed_point value simultaneously
-	// using only float values that are exactly represented in IEEE754 encoding (powers of two)
+    // Extract the mantissa bit per bit, compute the fixed_point value simultaneously
+    // using only float values that are exactly represented in IEEE754 encoding (powers of two)
     mant = 0; // IEEE754 23bits-wide mantissa as int without the leading implicit one
     fixed_point = float_decode_fixed_point_table(expi); // Limited range fixed point XXX specifiy the right range
     // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
@@ -191,12 +191,12 @@ void float_decode(in float float_to_decode, in int wanted_digit,
         if ( float_tmp >= crible ) {
             float_tmp -= mantissa_fractionnal;
             mant += 1;
-			// Fixed point is split into integer part and fractionnal part
-			// The way the floats are encoded garantee there is not carry to handle between those two parts
+            // Fixed point is split into integer part and fractionnal part
+            // The way the floats are encoded garantee there is not carry to handle between those two parts
             fixed_point += float_decode_fixed_point_table(int(mantissa_pow));
         }
     }
-	// To ease a rudimentary printf("%f",x) function we will return in dcb_digit a decimal digit of rank wanted_digit [0;18[
+    // To ease a rudimentary printf("%f",x) function we will return in dcb_digit a decimal digit of rank wanted_digit [0;18[
     // TODO make this in a int_decode() function to allow user print ints and floats
     int pow10_table[10];
     pow10_table[0] = 1;
@@ -210,21 +210,21 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     pow10_table[8] = 100000000;
     pow10_table[9] = 1000000000;
 
-	if ( wanted_digit < 0 || wanted_digit > 18 ) {
+    if ( wanted_digit < 0 || wanted_digit > 18 ) {
         dcb_digit = 11; // for ' '
     } else if ( wanted_digit == 0 ) {
-		dcb_digit = (sign==-1)?13:12; // for '-' or '+'
-	} else if ( wanted_digit == 9 ) {
-		dcb_digit = 11; // for '.'
-	} else if ( wanted_digit < 9 ) {
-		int pow10_next = pow10_table[9-wanted_digit];
-		int pow10_curr = pow10_table[8-wanted_digit];
-		dcb_digit = ( fixed_point[0] % pow10_next ) / pow10_curr;
-	} else {
-		int pow10_next = pow10_table[19-wanted_digit];
-		int pow10_curr = pow10_table[18-wanted_digit];
-		dcb_digit = ( fixed_point[1] % pow10_next ) / pow10_curr;
-	}
+        dcb_digit = (sign==-1)?13:12; // for '-' or '+'
+    } else if ( wanted_digit == 9 ) {
+        dcb_digit = 11; // for '.'
+    } else if ( wanted_digit < 9 ) {
+        int pow10_next = pow10_table[9-wanted_digit];
+        int pow10_curr = pow10_table[8-wanted_digit];
+        dcb_digit = ( fixed_point[0] % pow10_next ) / pow10_curr;
+    } else {
+        int pow10_next = pow10_table[19-wanted_digit];
+        int pow10_curr = pow10_table[18-wanted_digit];
+        dcb_digit = ( fixed_point[1] % pow10_next ) / pow10_curr;
+    }
 }
 #endif /* _PRINT_VALUE_HLSL */
 
@@ -258,7 +258,7 @@ float4 EffectLinear(float2 uv)
     float aspect_ratio = vpixel/upixel;
     float4 color_red  = float4(1.0,0.0,0.0,1.0);
     float4 color_cyan = float4(0.0,1.0,1.0,1.0);
-	float4 color_light_gray = float4(0.75,0.75,0.75,1.0);
+    float4 color_light_gray = float4(0.75,0.75,0.75,1.0);
 
     float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
 
