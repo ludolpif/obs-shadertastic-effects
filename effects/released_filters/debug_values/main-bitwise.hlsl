@@ -183,9 +183,10 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     fixed_point = float_decode_fixed_point_table(expi); // Limited range fixed point XXX specifiy the right range
     // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
     float mantissa_implicit_one = pow(2.0, expf);
+    // TODO loop on int as all uses of mantissa_pow are casted to int. use expi also.
     for ( float mantissa_pow = expf-1.0; mantissa_pow > expf-24.0; mantissa_pow -= 1.0 ) {
         mant *= 2;
-        float mantissa_fractionnal = pow(2.0, mantissa_pow);
+        float mantissa_fractionnal = pow(2.0, mantissa_pow); // TODO precision loss here probably, use table ?
         float crible = mantissa_implicit_one + mantissa_fractionnal;
         if ( float_tmp >= crible ) {
             float_tmp -= mantissa_fractionnal;
@@ -196,6 +197,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
         }
     }
 	// To ease a rudimentary printf("%f",x) function we will return in dcb_digit a decimal digit of rank wanted_digit [0;18[
+    // TODO make this in a int_decode() function to allow user print ints and floats
     int pow10_table[10];
     pow10_table[0] = 1;
     pow10_table[1] = 10;
@@ -267,6 +269,7 @@ float4 EffectLinear(float2 uv)
     float2 text_right_top_anchor = float2(1.0,0.0);
     vec2 vStringCoords = (uv - text_right_top_anchor)*vec2(aspect_ratio*font_ratio, 1.0)/font_size + float2(19.0, 0.0);
 
+    // TODO use 9 digits internally if usefull to have good precision, but only display digits known to be exact
     if ( insideBox(vStringCoords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
         // float_decode() in:
         float float_to_decode = debug_value;
