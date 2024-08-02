@@ -191,6 +191,36 @@ bool printValue(float2 uv, float value_to_debug, float2 area_topRight, int nbDec
 
     return false;
 }
+
+//FIXME finir le passage de uv à vStringCoords
+float printDCB(float2 vStringCoords, int dcb_digit) {
+    float font_width = 4.0;
+    float font_height = 6.0;
+    float font[20];
+    font[0] = 2454816.0;    /* 0 */
+    font[1] = 2302576.0;    /* 1 */
+    font[2] = 2441840.0;    /* 2 */
+    font[3] = 7611440.0;    /* 3 */
+    font[4] = 5600320.0;    /* 4 */
+    font[5] = 7418928.0;    /* 5 */
+    font[6] = 6370592.0;    /* 6 */
+    font[7] = 7610640.0;    /* 7 */
+    font[8] = 6628656.0;    /* 8 */
+    font[9] = 2450480.0;    /* 9 */
+    font[10] = 4551952.0;   /* N */
+    font[11] = 32.0;        /* . */
+    font[12] = 0.0;         /*   */
+    font[13] = 28672.0;     /* - */
+    font[14] = 152416.0;    /* e */
+    font[15] = 2110064.0;   /* i */
+    font[16] = 415072.0;    /* a */
+    font[17] = 4354592.0;   /* f */
+    font[18] = 218448.0;    /* n */
+    font[19] = 3416096.0;   /* ? */
+
+    int char_idx = ( dcb_digit >= 0 && dcb_digit < 20)?dcb_digit:19;
+    return floor(mod((font[char_idx] / pow(2.0, floor(fract(vStringCoords.x) * font_width) + (floor((1.0-vStringCoords.y) * font_height) * font_width))), 2.0));
+}
 #endif /* _PRINT_VALUE_HLSL */
 
 // These are required objects for the shader to work.
@@ -304,7 +334,7 @@ int2 float_decode_fixed_point_table(float expf) {
 int float_decode(in float x, in int wanted_digit, out int exp, out int sign, out float expf, out int2 fixed_point, out int dcb_digit)
 {
     // Floats numbers are coded in IEEE754 in a way roughly representable as sign*2^expf*(1+mantissa_fractionnal)
-	// sign and exponent extraction is easy
+	// sign extraction then work only with positive numbers everywhere
 	sign = (x<0.f || x==-0.f)?-1:1; // note: -0.0 is not < +0.0 
     x = abs(x);
     // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
@@ -325,7 +355,6 @@ int float_decode(in float x, in int wanted_digit, out int exp, out int sign, out
     expf = floor(log2(x)); // float exponent without -127 offset
     exp = int(expf)+127; // IEEE754 encoded 8bits-wide exponent
 
-
 	// Extract the mantissa bit per bit, compute the fixed_point value simultaneously
 	// using only float values that are exactly represented in IEEE754 encoding (powers of two)
     int extracted_mantissa = 0; // IEEE754 23bits-wide mantissa as int
@@ -345,7 +374,20 @@ int float_decode(in float x, in int wanted_digit, out int exp, out int sign, out
         }
     }
 	// To ease a rudimentary printf("%f",x) function we will return in dcb_digit a decimal digit of rank wanted_digit [0;18[
-	if ( wanted_digit == 0 ) {
+    int pow10_table[10];
+    pow10_table[0] = 1;
+    pow10_table[1] = 10;
+    pow10_table[2] = 100;
+    pow10_table[3] = 1000;
+    pow10_table[4] = 10000;
+    pow10_table[5] = 100000;
+    pow10_table[6] = 1000000;
+    pow10_table[7] = 10000000;
+    pow10_table[8] = 100000000;
+    pow10_table[9] = 1000000000;
+	if ( wanted_digit < 0 || wanted_digit > 18 ) {
+        dcb_digit = 11; // for ' '
+    } else if ( wanted_digit == 0 ) {
 		dcb_digit = (sign==-1)?13:12; // for '-' or '+'
 	} else if ( wanted_digit == 9 ) {
 		dcb_digit = 11; // for '.'
@@ -363,6 +405,7 @@ int float_decode(in float x, in int wanted_digit, out int exp, out int sign, out
 
 float4 EffectLinear(float2 uv)
 {
+    float aspect_ratio = vpixel/upixel;
     float4 color_red  = float4(1.0,0.0,0.0,1.0);
     float4 color_cyan = float4(0.0,1.0,1.0,1.0);
 	float4 color_light_gray = float4(0.75,0.75,0.75,1.0);
@@ -372,64 +415,31 @@ float4 EffectLinear(float2 uv)
     //float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
 
-	//int wanted_digit = floor(uv[0]*19.0);
-	int wanted_digit = 7;
-    float expf1 = 0.0;
-    int exp1 = 0;
-    int sign1 = 0;
-    int2 fixed_point1 = int2(0);
-    int dcb_digit1 = 0;
-    int mant1 = float_decode(debug_value, wanted_digit, exp1, sign1, expf1, fixed_point1, dcb_digit1);
+    float font_ratio = 6.0 / 4.0;
+    float2 text_right_top_anchor = float2(1.0,0.0);
+    vec2 vStringCoords = (uv - text_right_top_anchor)*vec2(aspect_ratio*font_ratio, 1.0)/font_size + float2(19.0, 0.0);
+
+    if ( insideBox(vStringCoords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
+        // float_decode() in:
+        float float_to_decode = debug_value;
+        //float float_to_decode = time;
+        int wanted_digit = int(vStringCoords.x);
+        // float_decode() out:
+        int sign, exp, mant, dcb_digit;
+        float expf;
+        int2 fixed_point;
+        // float_decode() call:
+        mant = float_decode(float_to_decode, wanted_digit, exp, sign, expf, fixed_point, dcb_digit);
+        // displaying parts of the result
+        if ( printDCB(vStringCoords, dcb_digit) == 1.0 ) {
+            return color_red;
+        }
+    }
 
     // First example : print a uniform variable with 3 decimals at top right corner of the image
     // (note : you can't print value that depends on pixel shader's uv)
-    if ( printValue(uv, dcb_digit1, float2(0.5, 0.0), 0, font_size) ) {
+    if ( printValue(uv, debug_value, float2(1.0, 0.8), 3, font_size) ) {
         return color_cyan;
-    }
-    if ( printValue(uv, expf1, float2(0.2, 0.0), 0, font_size) ) {
-        return color_cyan;
-    }
-    if ( printValue(uv, debug_value, float2(1.0, 0.0), 3, font_size) ) {
-        return color_cyan;
-    }
-    if ( printValue(uv, fixed_point1[0], float2(0.5, 0.1), 0, font_size) ) {
-        return color_red;
-    }
-    if ( printValue(uv, fixed_point1[1], float2(1.0, 0.1), 0, font_size) ) {
-        return color_red;
-    }
-    if ( printValue(uv, mant1, float2(1.0, 0.3), 0, font_size) ) {
-        return color_red;
-    }
-	if ( uv[1] > 0.7 && uv[1] < 0.8 ) {
-		float num = time;
-		//float num = 9437184.0;
-		//float num = 10485767.0;
-		//float num = 0.1;
-		//float num = 12582912.0;
-		//float num = 8388608.0 + 1.0;
-		float negative = (num<+0.0)?1.0:0.0;
-		float abs_num = abs(num);
-		float exponent = floor(log2(abs_num)); // IEEE754 float exponent from num (without -127 offset)
-		if ( exponent > 23.0 || exponent < -23.0 ) {
-			return color_light_gray;
-		}
-		float mantissa_pow = -(1.0+floor(uv[0]*23.0)); // [-1.0;-24.0[
-		float mantissa_implicit_one = pow(2.0, exponent);
-		float mantissa_fractionnal = 0.0;
-		float crible = 0.0;
-		for ( float higher_pow = -1.0; higher_pow > mantissa_pow; higher_pow -= 1.0 ) {
-			mantissa_fractionnal = pow(2.0, exponent+higher_pow);
-			crible = mantissa_implicit_one + mantissa_fractionnal;
-			if ( abs_num >= crible ) abs_num -= mantissa_fractionnal;
-		}
-		mantissa_fractionnal = pow(2.0, exponent+mantissa_pow);
-		crible = mantissa_implicit_one + mantissa_fractionnal;
-		if ( abs_num >= crible && uv[1] > 0.75) {
-			return color_cyan;
-		} else {
-			return float4(-(1.0+mantissa_pow)/23.0,0.0,0.0,1.0);
-		}
     }
 
     return rgba;
