@@ -43,65 +43,10 @@ bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
 /* Inspired from https://www.shadertoy.com/view/3lGBDm ; Licensed under CC BY-NC-SA 3.0
     Font extracted with : zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf
     See : https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
+
+    dcb_digit is encoded with some extensions to 4-bits DCB: 0-9:digit, 10:NaN, 11:'.', 12:' ', 13:'-', 14:'e', 15:inf
 */
-float printDCB(float2 vStringCoords, int dcb_digit) {
-    float2 glyph_size = float2(4.0,6.0);
-    float font[20];
-    font[0] = 2454816.0;    /* 0 */
-    font[1] = 2302576.0;    /* 1 */
-    font[2] = 2441840.0;    /* 2 */
-    font[3] = 7611440.0;    /* 3 */
-    font[4] = 5600320.0;    /* 4 */
-    font[5] = 7418928.0;    /* 5 */
-    font[6] = 6370592.0;    /* 6 */
-    font[7] = 7610640.0;    /* 7 */
-    font[8] = 6628656.0;    /* 8 */
-    font[9] = 2450480.0;    /* 9 */
-    font[10] = 4551952.0;   /* N */
-    font[11] = 32.0;        /* . */
-    font[12] = 0.0;         /*   */
-    font[13] = 28672.0;     /* - */
-    font[14] = 152416.0;    /* e */
-    font[15] = 2110064.0;   /* i */
-    font[16] = 415072.0;    /* a */
-    font[17] = 4354592.0;   /* f */
-    font[18] = 218448.0;    /* n */
-    font[19] = 3416096.0;   /* ? */
-
-    float w = glyph_size[0];
-    float h = glyph_size[1];
-    int i = (dcb_digit >= 0 && dcb_digit < 20)?dcb_digit:19;
-    return floor(mod((font[i] / pow(2.0, floor(fract(vStringCoords.x) * w) + (floor((1.0-vStringCoords.y) * h) * w))), 2.0));
-}
-#endif /* _PRINT_VALUE_HLSL */
-
-// These are required objects for the shader to work.
-// You don't need to change anything here, unless you know what you are doing
-sampler_state textureSampler {
-    Filter    = Linear;
-    AddressU  = Clamp;
-    AddressV  = Clamp;
-};
-
-struct VertData {
-    float2 uv  : TEXCOORD0;
-    float4 pos : POSITION;
-};
-
-struct FragData {
-    float2 uv  : TEXCOORD0;
-};
-
-VertData VSDefault(VertData v_in)
-{
-    VertData vert_out;
-    vert_out.uv  = v_in.uv;
-    vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
-    return vert_out;
-}
-
 int2 float_decode_fixed_point_table(int i) {
-
     int pow2_table_pos[30];
     int pow2_table_neg[31];
     pow2_table_pos[0]  =         1;
@@ -174,45 +119,77 @@ int2 float_decode_fixed_point_table(int i) {
     return int2(0,0);
 }
 
-// dcb_digit is encoded with some extensions to 4-bits DCB: 0-9:digit, 10:NaN, 11:'.', 12:' ', 13:'-', 14:'e', 15:inf
-int float_decode(in float x, in int wanted_digit, out int exp, out int sign, out float expf, out int2 fixed_point, out int dcb_digit)
+float printDCB(float2 vStringCoords, int dcb_digit) {
+    float2 glyph_size = float2(4.0,6.0);
+    float font[20];
+    font[0] = 2454816.0;    /* 0 */
+    font[1] = 2302576.0;    /* 1 */
+    font[2] = 2441840.0;    /* 2 */
+    font[3] = 7611440.0;    /* 3 */
+    font[4] = 5600320.0;    /* 4 */
+    font[5] = 7418928.0;    /* 5 */
+    font[6] = 6370592.0;    /* 6 */
+    font[7] = 7610640.0;    /* 7 */
+    font[8] = 6628656.0;    /* 8 */
+    font[9] = 2450480.0;    /* 9 */
+    font[10] = 4551952.0;   /* N */
+    font[11] = 32.0;        /* . */
+    font[12] = 0.0;         /*   */
+    font[13] = 28672.0;     /* - */
+    font[14] = 152416.0;    /* e */
+    font[15] = 2110064.0;   /* i */
+    font[16] = 415072.0;    /* a */
+    font[17] = 4354592.0;   /* f */
+    font[18] = 218448.0;    /* n */
+    font[19] = 3416096.0;   /* ? */
+
+    float w = glyph_size[0];
+    float h = glyph_size[1];
+    int i = (dcb_digit >= 0 && dcb_digit < 20)?dcb_digit:19;
+    return floor(mod((font[i] / pow(2.0, floor(fract(vStringCoords.x) * w) + (floor((1.0-vStringCoords.y) * h) * w))), 2.0));
+}
+
+void float_decode(in float float_to_decode, in int wanted_digit,
+        out int sign, out int exp, out int mant, out float expf, out int2 fixed_point, out int dcb_digit)
 {
     // Floats numbers are coded in IEEE754 in a way roughly representable as sign*2^expf*(1+mantissa_fractionnal)
-	// sign extraction then work only with positive numbers everywhere
-	sign = (x<0.f || x==-0.f)?-1:1; // note: -0.0 is not < +0.0 
-    x = abs(x);
+	sign = ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
     // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
-    if ( x == 0 ) {
+    if ( float_to_decode == 0.0 ) {
         expf = -126.0;
-        exp = 0; 
+        exp = 0;
         fixed_point = int2(0,0);
         dcb_digit = (wanted_digit==8 || wanted_digit==10)?0:(wanted_digit==9?11:12); // for 0.0
-        return 0;
+        return;
     }
-    if ( isnan(x) || isinf(x) ) {
-        expf = x;
+    if ( isnan(float_to_decode) || isinf(float_to_decode) ) {
+        expf = float_to_decode; // non-finite value as a placeholder
         exp = 255;
         fixed_point = int2(0,0);
-		dcb_digit = (wanted_digit>5 && wanted_digit<9)?(isnan(x)?10:15):((wanted_digit==4 && sign==-1)?13:12); // for +/-NaN or +/-inf
-        return 0;
+		dcb_digit = (wanted_digit>5 && wanted_digit<9)
+            ?isnan(float_to_decode)?10:15
+            :(wanted_digit==4 && sign==-1)?13:12; // for +/-NaN or +/-inf
+        return;
     }
-    expf = floor(log2(x)); // float exponent without -127 offset (out paraeter)
+    // Exponent extraction (for all finite cases)
+    float float_tmp = abs(float_to_decode);
+    expf = floor(log2(float_tmp)); // float exponent without -127 offset (out paraeter)
     int expi = int(expf); // int exponent without -127 offset (internal use)
     exp = expi + 127; // IEEE754 encoded 8bits-wide exponent (out parameter)
 
 	// Extract the mantissa bit per bit, compute the fixed_point value simultaneously
 	// using only float values that are exactly represented in IEEE754 encoding (powers of two)
-    int extracted_mantissa = 0; // IEEE754 23bits-wide mantissa as int
+    mant = 0; // IEEE754 23bits-wide mantissa as int without the leading implicit one
     fixed_point = float_decode_fixed_point_table(expi); // Limited range fixed point XXX specifiy the right range
     // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
     float mantissa_implicit_one = pow(2.0, expf);
     for ( float mantissa_pow = expf-1.0; mantissa_pow > expf-24.0; mantissa_pow -= 1.0 ) {
-        extracted_mantissa *= 2;
+        mant *= 2;
         float mantissa_fractionnal = pow(2.0, mantissa_pow);
         float crible = mantissa_implicit_one + mantissa_fractionnal;
-        if ( x >= crible ) {
-            x -= mantissa_fractionnal;
-            extracted_mantissa += 1;
+        if ( float_tmp >= crible ) {
+            float_tmp -= mantissa_fractionnal;
+            mant += 1;
 			// Fixed point is split into integer part and fractionnal part
 			// The way the floats are encoded garantee there is not carry to handle between those two parts
             fixed_point += float_decode_fixed_point_table(int(mantissa_pow));
@@ -246,7 +223,32 @@ int float_decode(in float x, in int wanted_digit, out int exp, out int sign, out
 		int pow10_curr = pow10_table[18-wanted_digit];
 		dcb_digit = ( fixed_point[1] % pow10_next ) / pow10_curr;
 	}
-    return extracted_mantissa;
+}
+#endif /* _PRINT_VALUE_HLSL */
+
+// These are required objects for the shader to work.
+// You don't need to change anything here, unless you know what you are doing
+sampler_state textureSampler {
+    Filter    = Linear;
+    AddressU  = Clamp;
+    AddressV  = Clamp;
+};
+
+struct VertData {
+    float2 uv  : TEXCOORD0;
+    float4 pos : POSITION;
+};
+
+struct FragData {
+    float2 uv  : TEXCOORD0;
+};
+
+VertData VSDefault(VertData v_in)
+{
+    VertData vert_out;
+    vert_out.uv  = v_in.uv;
+    vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+    return vert_out;
 }
 
 float4 EffectLinear(float2 uv)
@@ -275,7 +277,7 @@ float4 EffectLinear(float2 uv)
         float expf;
         int2 fixed_point;
         // float_decode() call:
-        mant = float_decode(float_to_decode, wanted_digit, exp, sign, expf, fixed_point, dcb_digit);
+        float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
         // displaying parts of the result
         if ( printDCB(vStringCoords, dcb_digit) == 1.0 ) {
             return color_red;
