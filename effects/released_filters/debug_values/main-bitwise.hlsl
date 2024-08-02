@@ -10,6 +10,7 @@ uniform int current_step;      // index of current step (for multistep effects)
 */
 
 // Specific parameters of the shader. They must be defined in the meta.json file next to this one.
+uniform float debug_value;
 uniform float font_size;
 uniform int coord_mode;
 uniform float pixel_u;
@@ -130,44 +131,6 @@ float printValue_digitBin(int x) {
  * }
  */
 bool printValue(float2 uv, float value_to_debug, float2 area_topRight, int nbDecimal, float fontSize) {
-    
-}
-float PrintValue( vec2 uv, float value_to_debug, float fMaxDigits, float fDecimalPlaces )
-{
-    float font_width = 4.0;
-    float font_height = 6.0;
-    if ((uv.y < 0.0) || (uv.y >= 1.0)) return 0.0;
-
-    bool bNeg = ( value_to_debug < 0.0 );
-	value_to_debug = abs(value_to_debug);
-
-	float fLog10Value = log2(abs(value_to_debug)) / log2(10.0);
-	float fBiggestIndex = max(floor(fLog10Value), 0.0);
-	float fDigitIndex = fMaxDigits - floor(uv.x);
-	float fCharBin = 0.0;
-	if(fDigitIndex > (-fDecimalPlaces - 1.01)) {
-		if(fDigitIndex > fBiggestIndex) {
-			if((bNeg) && (fDigitIndex < (fBiggestIndex+1.5))) {
-                fCharBin = printValue_digitBin(45); /* ASCII '-' is 45 in decimal */
-            }
-		} else {
-			if(fDigitIndex == -1.0) {
-				if(fDecimalPlaces > 0.0) {
-                    fCharBin = printValue_digitBin(46); /* ASCII '.' is 46 in decimal */
-                } 
-			} else {
-                float fReducedRangeValue = value_to_debug;
-                if(fDigitIndex < 0.0) { fReducedRangeValue = fract( value_to_debug ); fDigitIndex += 1.0; }
-				float fDigitValue = (abs(fReducedRangeValue / (pow(10.0, fDigitIndex))));
-                fCharBin = printValue_digitBin(48+int(floor(mod(fDigitValue, 10.0)))); /* ASCII '0' is 48 in decimal */
-			}
-        }
-	}
-    return floor(mod((fCharBin / pow(2.0, floor(fract(uv.x) * font_width) + (floor(uv.y * font_height) * font_width))), 2.0));
-}
-
-
-bool printValueX(float2 uv, float value_to_debug, float2 area_topRight, int nbDecimal, float fontSize) {
     nbDecimal = max(0, nbDecimal);
     if ((uv.y < 0.0) || (uv.y >= 1.0) || (uv.x < 0.0) || (uv.x >= 1.0)) {
         return false;
@@ -201,48 +164,34 @@ bool printValueX(float2 uv, float value_to_debug, float2 area_topRight, int nbDe
             digitIndex--;
         }
         if (isNegative && digitIndex == -1) {
-            digitBin = printValue_digitBin(45); /* ASCII '-' is 45 in decimal */
+            digitBin = printValue_digitBin(45);
         }
         else if (hasDecimals && digitIndex == biggestIndex + 1) {
-            digitBin = printValue_digitBin(46); /* ASCII '.' is 46 in decimal */
+            digitBin = printValue_digitBin(46);
         }
         else {
             if (hasDecimals && digitIndex > biggestIndex) {
                 digitIndex--;
-                value_to_debug = frac(value_to_debug);
+                value_to_debug = fract( value_to_debug );
             }
             int currentDigitNegativeIndex = digitIndex-biggestIndex;
             float currentDigitFloat = fmod(value_to_debug * pow(10.0, currentDigitNegativeIndex), 10.0);
-            digitBin = printValue_digitBin(48+int(currentDigitFloat)); /* ASCII '0' is 48 in decimal */
+            int currentDigit;
+            if ( (digitIndex == biggestIndex + nbDecimal) && (currentDigitFloat < 9.0) ) {
+                currentDigit = int(round(currentDigitFloat));
+            }
+            else {
+                currentDigit = int(currentDigitFloat);
+            }
+            digitBin = printValue_digitBin(48+currentDigit);
         }
 
-        return fmod(digitBin / pow(2.0, (font_height - square_v) * font_width + digit_u), 2.0) >= 1.0;
+        return fmod(digitBin / pow(2.0, (font_height-square_v) * font_width + digit_u), 2.0) >= 1.0;
     }
 
     return false;
 }
-
-float4 printRGBA(float2 uv, float4 rgba_pixel_to_debug, float2 area_topRight, int nbDecimal, float fontSize) {
-    float4 solid_red   = float4(1.0, 0.0, 0.0, 1.0);
-    float4 solid_green = float4(0.0, 1.0, 0.0, 1.0);
-    float4 solid_blue  = float4(0.0, 0.0, 1.0, 1.0);
-    float4 solid_grey  = float4(0.5, 0.5, 0.5, 1.0);
-    float4 transparent = float4(0.0, 0.0, 0.0, 0.0);
-
-    float4 value_to_debug = rgba_pixel_to_debug * 255.0;
-    float2 area_r = area_topRight;
-    float2 area_g = float2(area_topRight.x, area_topRight.y + 1.0*fontSize);
-    float2 area_b = float2(area_topRight.x, area_topRight.y + 2.0*fontSize);
-    float2 area_a = float2(area_topRight.x, area_topRight.y + 3.0*fontSize);
-
-    if ( printValue(uv, value_to_debug.r, area_r, nbDecimal, fontSize) ) return solid_red;
-    if ( printValue(uv, value_to_debug.g, area_g, nbDecimal, fontSize) ) return solid_green;
-    if ( printValue(uv, value_to_debug.b, area_b, nbDecimal, fontSize) ) return solid_blue;
-    if ( printValue(uv, value_to_debug.a, area_a, nbDecimal, fontSize) ) return solid_grey;
-    return transparent;
-}
 #endif /* _PRINT_VALUE_HLSL */
-//----------------------------------------------------------------------------------------------------------------------
 
 // These are required objects for the shader to work.
 // You don't need to change anything here, unless you know what you are doing
@@ -269,45 +218,218 @@ VertData VSDefault(VertData v_in)
     return vert_out;
 }
 
+int float_decode_pow10_table(int expf) {
+	return
+        expf==9?1000000000:
+        expf==8?100000000:
+        expf==7?10000000:
+        expf==6?1000000:
+        expf==5?100000:
+        expf==4?10000:
+        expf==3?1000:
+        expf==2?100:
+        expf==1?10:
+        expf==0?1:
+		0;
+}
+
+int2 float_decode_fixed_point_table(float expf) {
+    return
+		expf>0.0?int2(int(pow(2.0,expf)),0): // Not exact if pow > 23 ?
+		/*
+        expf==+29.0?int2(536870912,0):
+        expf==+28.0?int2(268435456,0):
+        expf==+27.0?int2(134217728,0):
+        expf==+26.0?int2(67108864,0):
+        expf==+25.0?int2(33554432,0):
+        expf==+24.0?int2(16777216,0):
+        expf==+23.0?int2(8388608,0):
+        expf==+22.0?int2(4194304,0):
+        expf==+21.0?int2(2097152,0):
+        expf==+20.0?int2(1048576,0):
+        expf==+19.0?int2(524288,0):
+        expf==+18.0?int2(262144,0):
+        expf==+17.0?int2(131072,0):
+        expf==+16.0?int2(65536,0):
+        expf==+15.0?int2(32768,0):
+        expf==+14.0?int2(16384,0):
+        expf==+13.0?int2(8192,0):
+        expf==+12.0?int2(4096,0):
+        expf==+11.0?int2(2048,0):
+        expf==+10.0?int2(1024,0):
+        expf==+ 9.0?int2(512,0):
+        expf==+ 8.0?int2(256,0):
+        expf==+ 7.0?int2(128,0):
+        expf==+ 6.0?int2(64,0):
+        expf==+ 5.0?int2(32,0):
+        expf==+ 4.0?int2(16,0):
+        expf==+ 3.0?int2(8,0):
+        expf==+ 2.0?int2(4,0):
+        expf==+ 1.0?int2(2,0):*/
+        expf==+ 0.0?int2(1,0):
+        expf==- 1.0?int2(0,500000000):
+        expf==- 2.0?int2(0,250000000):
+        expf==- 3.0?int2(0,125000000):
+        expf==- 4.0?int2(0, 62500000):
+        expf==- 5.0?int2(0, 31250000):
+        expf==- 6.0?int2(0, 15625000):
+        expf==- 7.0?int2(0,  7812500):
+        expf==- 8.0?int2(0,  3906250):
+        expf==- 9.0?int2(0,  1953125):
+        expf==-10.0?int2(0,   976562):
+        expf==-11.0?int2(0,   488281):
+        expf==-12.0?int2(0,   244141):
+        expf==-13.0?int2(0,   122070):
+        expf==-14.0?int2(0,    61035):
+        expf==-15.0?int2(0,    30518):
+        expf==-16.0?int2(0,    15259):
+        expf==-17.0?int2(0,     7629):
+        expf==-18.0?int2(0,     3815):
+        expf==-19.0?int2(0,     1907):
+        expf==-20.0?int2(0,      954):
+        expf==-21.0?int2(0,      477):
+        expf==-22.0?int2(0,      238):
+        expf==-23.0?int2(0,      119):
+        expf==-24.0?int2(0,       60):
+        expf==-25.0?int2(0,       30):
+        expf==-26.0?int2(0,       15):
+        expf==-27.0?int2(0,        7):
+        expf==-28.0?int2(0,        4):
+        expf==-29.0?int2(0,        2):
+        expf==-30.0?int2(0,        1):
+        int2(0,0);
+}
+
+// dcb_digit is encoded with some extensions to 4-bits DCB: 0-9:digit, 10:NaN, 11:'.', 12:' ', 13:'-', 14:'e', 15:inf
+int float_decode(in float x, in int wanted_digit, out int exp, out int sign, out float expf, out int2 fixed_point, out int dcb_digit)
+{
+    // Floats numbers are coded in IEEE754 in a way roughly representable as sign*2^expf*(1+mantissa_fractionnal)
+	// sign and exponent extraction is easy
+	sign = (x<0.f || x==-0.f)?-1:1; // note: -0.0 is not < +0.0 
+    x = abs(x);
+    // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
+    if ( x == 0 ) {
+        expf = -126.0;
+        exp = 0; 
+        fixed_point = int2(0,0);
+        dcb_digit = (wanted_digit==8 || wanted_digit==10)?0:(wanted_digit==9?11:12); // for 0.0
+        return 0;
+    }
+    if ( isnan(x) || isinf(x) ) {
+        expf = x;
+        exp = 255;
+        fixed_point = int2(0,0);
+		dcb_digit = (wanted_digit>5 && wanted_digit<9)?(isnan(x)?10:15):((wanted_digit==4 && sign==-1)?13:12); // for +/-NaN or +/-inf
+        return 0;
+    }
+    expf = floor(log2(x)); // float exponent without -127 offset
+    exp = int(expf)+127; // IEEE754 encoded 8bits-wide exponent
+
+
+	// Extract the mantissa bit per bit, compute the fixed_point value simultaneously
+	// using only float values that are exactly represented in IEEE754 encoding (powers of two)
+    int extracted_mantissa = 0; // IEEE754 23bits-wide mantissa as int
+    fixed_point = float_decode_fixed_point_table(expf); // Limited range fixed point XXX specifiy the right range
+    // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
+    float mantissa_implicit_one = pow(2.0, expf);
+    for ( float mantissa_pow = expf-1.0; mantissa_pow > expf-24.0; mantissa_pow -= 1.0 ) {
+        extracted_mantissa *= 2;
+        float mantissa_fractionnal = pow(2.0, mantissa_pow);
+        float crible = mantissa_implicit_one + mantissa_fractionnal;
+        if ( x >= crible ) {
+            x -= mantissa_fractionnal;
+            extracted_mantissa += 1;
+			// Fixed point is split into integer part and fractionnal part
+			// The way the floats are encoded garantee there is not carry to handle between those two parts
+            fixed_point += float_decode_fixed_point_table(mantissa_pow);
+        }
+    }
+	// To ease a rudimentary printf("%f",x) function we will return in dcb_digit a decimal digit of rank wanted_digit [0;18[
+	if ( wanted_digit == 0 ) {
+		dcb_digit = (sign==-1)?13:12; // for '-' or '+'
+	} else if ( wanted_digit == 9 ) {
+		dcb_digit = 11; // for '.'
+	} else if ( wanted_digit < 9 ) {
+		int pow10_next = float_decode_pow10_table(9-wanted_digit);
+		int pow10_curr = float_decode_pow10_table(8-wanted_digit);
+		dcb_digit = ( fixed_point[0] % pow10_next ) / pow10_curr;
+	} else {
+		int pow10_next = float_decode_pow10_table(19-wanted_digit);
+		int pow10_curr = float_decode_pow10_table(18-wanted_digit);
+		dcb_digit = ( fixed_point[1] % pow10_next ) / pow10_curr;
+	}
+    return extracted_mantissa;
+}
+
 float4 EffectLinear(float2 uv)
 {
     float4 color_red  = float4(1.0,0.0,0.0,1.0);
     float4 color_cyan = float4(0.0,1.0,1.0,1.0);
-	float4 light_gray = float4(0.75,0.75,0.75,1.0);
+	float4 color_light_gray = float4(0.75,0.75,0.75,1.0);
 
     float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
 
-    float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
+    //float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
+
+	//int wanted_digit = floor(uv[0]*19.0);
+	int wanted_digit = 7;
+    float expf1 = 0.0;
+    int exp1 = 0;
+    int sign1 = 0;
+    int2 fixed_point1 = int2(0);
+    int dcb_digit1 = 0;
+    int mant1 = float_decode(debug_value, wanted_digit, exp1, sign1, expf1, fixed_point1, dcb_digit1);
 
     // First example : print a uniform variable with 3 decimals at top right corner of the image
     // (note : you can't print value that depends on pixel shader's uv)
-    if ( printValue(uv, font_size, float2(1.0, 0.0), 3, font_size) ) {
+    if ( printValue(uv, dcb_digit1, float2(0.5, 0.0), 0, font_size) ) {
         return color_cyan;
     }
-    // Second example : print an RGBA value, note: this one returns a color, not a boolean
-    float4 dbg = printRGBA(uv, rgba_pixel_to_debug, float2(1.0, 1.0*font_size), 1, font_size);
-    rgba = lerp(rgba, dbg, dbg.a);
-
-    // Display a red 3x3 pixel square around the pixel to debug, preserving the center pixel
-    float2 uv_pixel = float2(upixel, vpixel);
-    if ( insideBox(uv, uv_pixel_to_debug, uv_pixel_to_debug+uv_pixel ) ) {
-        return rgba;
+    if ( printValue(uv, expf1, float2(0.2, 0.0), 0, font_size) ) {
+        return color_cyan;
     }
-    float2 uv_line_width = uv_pixel * 1.0;
-    if ( insideBox(uv, uv_pixel_to_debug-uv_line_width, uv_pixel_to_debug+uv_pixel+uv_line_width) ) {
+    if ( printValue(uv, debug_value, float2(1.0, 0.0), 3, font_size) ) {
+        return color_cyan;
+    }
+    if ( printValue(uv, fixed_point1[0], float2(0.5, 0.1), 0, font_size) ) {
         return color_red;
     }
-
-    // Display a zoomed area with a red border and filled with the color value of the pixel to debug
-    float2 zoomed_center = (uv_pixel_to_debug - float2(0.5,0.5))/2.0 + float2(0.5, 0.5);
-    float2 zoomed_topLeft = zoomed_center - 32.0*uv_pixel;
-    float2 zoomed_bottomRight = zoomed_center + 32.0*uv_pixel;
-    if ( insideBox(uv, zoomed_topLeft, zoomed_bottomRight) ) {
-        return rgba_pixel_to_debug;
-    }
-    if ( insideBox(uv, zoomed_topLeft-uv_line_width, zoomed_bottomRight+uv_line_width) ) {
+    if ( printValue(uv, fixed_point1[1], float2(1.0, 0.1), 0, font_size) ) {
         return color_red;
+    }
+    if ( printValue(uv, mant1, float2(1.0, 0.3), 0, font_size) ) {
+        return color_red;
+    }
+	if ( uv[1] > 0.7 && uv[1] < 0.8 ) {
+		float num = time;
+		//float num = 9437184.0;
+		//float num = 10485767.0;
+		//float num = 0.1;
+		//float num = 12582912.0;
+		//float num = 8388608.0 + 1.0;
+		float negative = (num<+0.0)?1.0:0.0;
+		float abs_num = abs(num);
+		float exponent = floor(log2(abs_num)); // IEEE754 float exponent from num (without -127 offset)
+		if ( exponent > 23.0 || exponent < -23.0 ) {
+			return color_light_gray;
+		}
+		float mantissa_pow = -(1.0+floor(uv[0]*23.0)); // [-1.0;-24.0[
+		float mantissa_implicit_one = pow(2.0, exponent);
+		float mantissa_fractionnal = 0.0;
+		float crible = 0.0;
+		for ( float higher_pow = -1.0; higher_pow > mantissa_pow; higher_pow -= 1.0 ) {
+			mantissa_fractionnal = pow(2.0, exponent+higher_pow);
+			crible = mantissa_implicit_one + mantissa_fractionnal;
+			if ( abs_num >= crible ) abs_num -= mantissa_fractionnal;
+		}
+		mantissa_fractionnal = pow(2.0, exponent+mantissa_pow);
+		crible = mantissa_implicit_one + mantissa_fractionnal;
+		if ( abs_num >= crible && uv[1] > 0.75) {
+			return color_cyan;
+		} else {
+			return float4(-(1.0+mantissa_pow)/23.0,0.0,0.0,1.0);
+		}
     }
 
     return rgba;
