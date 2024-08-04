@@ -46,7 +46,32 @@ bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
 
     dcb_digit is encoded with some extensions to 4-bits DCB: 0-9:digit, 10:NaN, 11:'.', 12:' ', 13:'-', 14:'e', 15:inf
 */
+//TODO try to make tables as const (and global ?)
+
+// To ease a rudimentary printf("%d",x) this function we will return decimal digit of rank wanted_digit [0;10[
+int int_decode_decimal(in int int_to_decode, in int wanted_digit) {
+    int pow10_table[10];
+    pow10_table[0] = 1;
+    pow10_table[1] = 10;
+    pow10_table[2] = 100;
+    pow10_table[3] = 1000;
+    pow10_table[4] = 10000;
+    pow10_table[5] = 100000;
+    pow10_table[6] = 1000000;
+    pow10_table[7] = 10000000;
+    pow10_table[8] = 100000000;
+    pow10_table[9] = 1000000000;
+
+    int pow10_next = pow10_table[9-wanted_digit];
+    int pow10_curr = pow10_table[8-wanted_digit];
+    return ( int_to_decode % pow10_next ) / pow10_curr;
+}
+
 int2 float_decode_fixed_point_table(int i) {
+    // For some cases, but can skip using a table but not all, doing it may slow down things because of code paths
+    // For strictly positive powers, HLSL allows "1<<(i-1)" but it's not implemented in GLSL
+    //  and pow(2.0,i) may or may not have precision issues because of float->int conversion of the result
+    // For negative powers, we use here a decimal-only useful representation
     int pow2_table_pos[30];
     int pow2_table_neg[31];
     pow2_table_pos[0]  =         1;
@@ -121,6 +146,8 @@ int2 float_decode_fixed_point_table(int i) {
 
 float printDCB(float2 vStringCoords, int dcb_digit) {
     float2 glyph_size = float2(4.0,6.0);
+    // TODO update font extractor script
+    // TODO don't make y-mirror and remove the 1.0-y here (or keep it for Shadertoy version?)
     float font[20];
     font[0] = 2454816.0;    /* 0 */
     font[1] = 2302576.0;    /* 1 */
@@ -132,7 +159,7 @@ float printDCB(float2 vStringCoords, int dcb_digit) {
     font[7] = 7610640.0;    /* 7 */
     font[8] = 6628656.0;    /* 8 */
     font[9] = 2450480.0;    /* 9 */
-    font[10] = 4551952.0;   /* N */
+    font[10] = 218448.0;    /* n */
     font[11] = 32.0;        /* . */
     font[12] = 0.0;         /*   */
     font[13] = 28672.0;     /* - */
@@ -140,13 +167,12 @@ float printDCB(float2 vStringCoords, int dcb_digit) {
     font[15] = 2110064.0;   /* i */
     font[16] = 415072.0;    /* a */
     font[17] = 4354592.0;   /* f */
-    font[18] = 218448.0;    /* n */
-    font[19] = 3416096.0;   /* ? */
+    font[18] = 3416096.0;   /* ? */
 
     float w = glyph_size[0];
     float h = glyph_size[1];
-    int i = (dcb_digit >= 0 && dcb_digit < 20)?dcb_digit:19;
-    return floor(mod((font[i] / pow(2.0, floor(fract(vStringCoords.x) * w) + (floor((1.0-vStringCoords.y) * h) * w))), 2.0));
+    int i = (dcb_digit >= 0 && dcb_digit < 19)?dcb_digit:18;
+    return floor(mod((font[i] / pow(2.0, floor(fract(vStringCoords.x) * w) + (floor((1.0-frac(vStringCoords.y)) * h) * w))), 2.0));
 }
 
 void float_decode(in float float_to_decode, in int wanted_digit,
@@ -186,7 +212,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     // TODO loop on int as all uses of mantissa_pow are casted to int. use expi also.
     for ( float mantissa_pow = expf-1.0; mantissa_pow > expf-24.0; mantissa_pow -= 1.0 ) {
         mant *= 2;
-        float mantissa_fractionnal = pow(2.0, mantissa_pow); // TODO precision loss here probably, use table ?
+        float mantissa_fractionnal = pow(2.0, mantissa_pow); // All power of two are exactly representable (mant==0, exp varies)
         float crible = mantissa_implicit_one + mantissa_fractionnal;
         if ( float_tmp >= crible ) {
             float_tmp -= mantissa_fractionnal;
@@ -194,36 +220,21 @@ void float_decode(in float float_to_decode, in int wanted_digit,
             // Fixed point is split into integer part and fractionnal part
             // The way the floats are encoded garantee there is not carry to handle between those two parts
             fixed_point += float_decode_fixed_point_table(int(mantissa_pow));
+            //TODO if expf > 23, no fractionnal part will be encoded (all bits for integer part)
+            //TODO if expf > 29, fixed_point should use 1.000000e+30 notation ?
         }
     }
     // To ease a rudimentary printf("%f",x) function we will return in dcb_digit a decimal digit of rank wanted_digit [0;18[
-    // TODO make this in a int_decode() function to allow user print ints and floats
-    int pow10_table[10];
-    pow10_table[0] = 1;
-    pow10_table[1] = 10;
-    pow10_table[2] = 100;
-    pow10_table[3] = 1000;
-    pow10_table[4] = 10000;
-    pow10_table[5] = 100000;
-    pow10_table[6] = 1000000;
-    pow10_table[7] = 10000000;
-    pow10_table[8] = 100000000;
-    pow10_table[9] = 1000000000;
-
     if ( wanted_digit < 0 || wanted_digit > 18 ) {
-        dcb_digit = 11; // for ' '
+        dcb_digit = 12; // for ' '
     } else if ( wanted_digit == 0 ) {
         dcb_digit = (sign==-1)?13:12; // for '-' or '+'
     } else if ( wanted_digit == 9 ) {
         dcb_digit = 11; // for '.'
     } else if ( wanted_digit < 9 ) {
-        int pow10_next = pow10_table[9-wanted_digit];
-        int pow10_curr = pow10_table[8-wanted_digit];
-        dcb_digit = ( fixed_point[0] % pow10_next ) / pow10_curr;
+        dcb_digit = int_decode_decimal(fixed_point[0], wanted_digit);
     } else {
-        int pow10_next = pow10_table[19-wanted_digit];
-        int pow10_curr = pow10_table[18-wanted_digit];
-        dcb_digit = ( fixed_point[1] % pow10_next ) / pow10_curr;
+        dcb_digit = int_decode_decimal(fixed_point[1], wanted_digit-10);
     }
 }
 #endif /* _PRINT_VALUE_HLSL */
@@ -256,10 +267,6 @@ VertData VSDefault(VertData v_in)
 float4 EffectLinear(float2 uv)
 {
     float aspect_ratio = vpixel/upixel;
-    float4 color_red  = float4(1.0,0.0,0.0,1.0);
-    float4 color_cyan = float4(0.0,1.0,1.0,1.0);
-    float4 color_light_gray = float4(0.75,0.75,0.75,1.0);
-
     float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
 
     //float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
@@ -267,10 +274,22 @@ float4 EffectLinear(float2 uv)
 
     float font_ratio = 6.0 / 4.0;
     float2 text_right_top_anchor = float2(1.0,0.0);
-    vec2 vStringCoords = (uv - text_right_top_anchor)*vec2(aspect_ratio*font_ratio, 1.0)/font_size + float2(19.0, 0.0);
+    float2 vStringCoords = (uv - text_right_top_anchor)*float2(aspect_ratio*font_ratio, 1.0)/font_size + float2(19.0, 0.0);
+    //TODO Make vStringCoords more understandable, with digit numbers from right to left maybe, ship a textGrid(uv, text_right_top_anchor) function to help
+
+    float4 debug_color1 = float4(1.0-rgba.rgb, rgba.a);
+    float4 debug_color2 = float4(frac(vStringCoords.x), frac(vStringCoords.y), 1.0, 1.0);
+
+
+    // DCB font test display
+    if ( insideBox(vStringCoords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
+        int wanted_digit = int(vStringCoords.x);
+        int dcb_digit = wanted_digit;
+        rgba = lerp(rgba, debug_color1, printDCB(vStringCoords, dcb_digit) );
+    }
 
     // TODO use 9 digits internally if usefull to have good precision, but only display digits known to be exact
-    if ( insideBox(vStringCoords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
+    if ( insideBox(vStringCoords, float2(0.0, 1.0), float2(19.0, 4.0) ) ) {
         // float_decode() in:
         float float_to_decode = debug_value;
         //float float_to_decode = time;
@@ -282,8 +301,17 @@ float4 EffectLinear(float2 uv)
         // float_decode() call:
         float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
         // displaying parts of the result
-        if ( printDCB(vStringCoords, dcb_digit) == 1.0 ) {
-            return color_red;
+        if ( insideBox(vStringCoords, float2(0.0, 3.0), float2(19.0, 4.0) ) ) {
+            rgba = lerp(rgba, debug_color2, printDCB(vStringCoords, dcb_digit) );
+        }
+        if ( insideBox(vStringCoords, float2(0.0, 1.0), float2(9.0, 2.0) ) ) {
+            int dcb_digit2 = int_decode_decimal(mant, wanted_digit);
+            rgba = lerp(rgba, debug_color2, printDCB(vStringCoords, dcb_digit2) );
+        }
+        if ( insideBox(vStringCoords, float2(0.0, 2.0), float2(9.0, 3.0) ) ) {
+            float_to_decode = expf;
+            float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
+            rgba = lerp(rgba, debug_color2, printDCB(vStringCoords, dcb_digit) );
         }
     }
 
