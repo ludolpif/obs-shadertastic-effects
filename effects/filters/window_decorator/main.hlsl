@@ -11,6 +11,25 @@ uniform int current_step;      // index of current step (for multistep effects)
 // Specific parameters of the shader. They must be defined in the meta.json file next to this one.
 uniform texture2d deco_tex;
 uniform float deco_scale;
+
+/* #include "../../shadertastic-lib/geometry/inside_box.hlsl" */
+#ifndef _INSIDE_BOX_HLSL
+#define _INSIDE_BOX_HLSL
+/**
+ * Returns true if v is included in the rectangle defined by left_top (inclusive) and right_bottom (exclusive)
+ * Alternative definition : with left_top.x <= right_bottom.x and left_top.y <= right_bottom.y,
+ *  it returns ( left_top.x <= v.x < right_bottom.x && left_top.y <= v.y < right_bottom.y )
+ * Behavior on limits is tricky if left_top.x > right_bottom.x or left_top.y > right_bottom.y
+ * @param v coordinates of a point to test
+ * @param left_top coordinates of the top left corner of the rectangle
+ * @param right_bottom coordinates of the bottom right corner of the rectangle
+ */
+bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
+    float2 s = step(left_top, v) - step(right_bottom, v);
+    return s.x * s.y != 0.0;
+}
+#endif /* _INSIDE_BOX_HLSL */
+
 //----------------------------------------------------------------------------------------------------------------------
 
 // These are required objects for the shader to work.
@@ -73,16 +92,11 @@ VertDataOut VSWithBorders(VertDataIn v_in)
     return vert_out;
 }
 
-/* TODO use #include */
-bool insideBox(float2 v, float2 bottomLeft, float2 topRight) {
-    float2 s = step(bottomLeft, v) - step(topRight, v);
-    return s.x * s.y != 0.0;
-}
 
 float4 EffectLinear(float2 uv, float2 uv1, float2 uv2)
 {
     float2 deco_uv;
-    bool isOuter = !insideBox(uv, float2(0.0,0.0), float2(1.0,1.0) );
+    bool isOuter = !inside_box(uv, float2(0.0,0.0), float2(1.0,1.0) );
     if ( isOuter ) {
         // We are on a pixel that is part of the decoration border
         if ( uv[0] < 0.0 ) {
