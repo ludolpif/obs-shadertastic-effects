@@ -82,6 +82,7 @@ bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
             4,\
             2,\
             1
+#ifndef DCB_FONT_VALUES
 #define DCB_FONT_GLYPH_WIDTH 4
 #define DCB_FONT_GLYPH_HEIGHT 6
 #define DCB_FONT_VALUES 2454816.0, 2302576.0, 2441840.0, 7611440.0, 5600320.0,\
@@ -90,28 +91,39 @@ bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
 /* Characters in the font
  * [0] to [9] : 0123456789
  * [10]:'n' [11]:'.' [12]:' ' [13]:'-' [14]:'e' [16]:'i' [17]:'a' [18]:'f' [19]:'?' */
+#endif /* DCB_FONT_VALUES */
+
+//TODO Make text_grid more understandable, with digit numbers from right to left
+//XXX add rotation or vertical option ? add char offset option ? clarify uv / char args
+float2 text_grid(float2 uv, float2 text_right_top_anchor, float text_height, float aspect_ratio) {
+    float font_ratio = float(DCB_FONT_GLYPH_HEIGHT)/float(DCB_FONT_GLYPH_WIDTH);
+    return (uv - text_right_top_anchor)*float2(aspect_ratio*font_ratio, 1.0)/text_height + float2(19.0, 0.0);
+}
 
 // To ease a rudimentary printf("%d",x) this function we will return decimal digit of rank wanted_digit [0;10[
-int int_decode_decimal(in int int_to_decode, in int wanted_digit) {
+int int_decode_decimal(in int int_to_decode, in int wanted_digit, in int total_digits) {
 #ifdef _OPENGL
 	const int pow10_table[10] = int[10](POW10_TABLE_VALUES);
 #else
 	static int pow10_table[10] = {POW10_TABLE_VALUES};
 #endif
+	if ( wanted_digit > 9 || (9-wanted_digit) > total_digits) {
+        return 12; // ' '
+    }
+	if ( wanted_digit == 0 ) {
+		return int_to_decode<0?13:12; // '-' or ' '
+	}
     int pow10_next = pow10_table[10-wanted_digit];
     int pow10_curr = pow10_table[9-wanted_digit];
-	if ( wanted_digit == 0 ) {
-		return int_to_decode<0?13:12;
-	}
     return ( abs(int_to_decode) % pow10_next ) / pow10_curr;
 }
 
-int2 float_decode_fixed_point_table(int i) {
-    // For some cases, we can skip using a table but not all, doing it may slow down things because of code paths
-    // For strictly positive powers, HLSL allows "1<<(i-1)" but it's not implemented in GLSL
-    //  and pow(2.0,i) may or may not have precision issues because of float->int conversion of the result
-    // For negative powers, we use here a decimal-only useful representation
-    // Maybe someone will have a better solution than me (ludolpif, not a professionnal graphics programmer)
+int2 float_decode_fixed_point_table(float mantissa_pow) {
+    /*
+     * fixed-point as int2. The first is integer part, the second is fractionnal part.
+     *   For negative powers, we use a +9 implied decimal fraction digits.
+     *   So, to get the normal representation, divide the table value by 10^9.
+     */
 #ifdef _OPENGL
 	const int pow2_table_pos[30] = int[30](POW2FP_INTEG_TABLE_VALUES);
 	const int pow2_table_neg[31] = int[31](POW2FP_FRACT_TABLE_VALUES);
@@ -119,13 +131,25 @@ int2 float_decode_fixed_point_table(int i) {
 	static int pow2_table_pos[30] = {POW2FP_INTEG_TABLE_VALUES};
 	static int pow2_table_neg[31] = {POW2FP_FRACT_TABLE_VALUES};
 #endif
-    if ( i < 30.0 && i >= 0.0 ) {
-        return int2(pow2_table_pos[i],0);
+    /*
+     * Why a table ?
+     * First: maybe someone will have a better solution than me (ludolpif, not a professionnal graphics programmer)
+     * Second: For some cases, we can skip using a table but not all, doing it may slow down things because of
+     *   different code paths (in GPU, funcs are inlined, loops are unrolled, same ASM instr is ran on multiple data)
+     * Third: it have to work on HLSL and GLSL.
+     *   for strictly positive powers, HLSL allows "1<<(i-1)" but it's not implemented in GLSL
+     *   pow(2.0,i) may or may not have precision issues because of float->int conversion of the result
+     */
+    int i = int(mantissa_pow);
+    int2 res;
+    if ( i < 30 && i >= 0 ) {
+        res = int2(pow2_table_pos[i],0);
+    } else if ( i < 0 && i > -31 ) {
+        res = int2(0,pow2_table_neg[-i]);
+    } else {
+        res = int2(0,0);
     }
-    if ( i < 0.0 && i > -31.0 ) {
-        return int2(0,pow2_table_neg[-i]);
-    }
-    return int2(0,0);
+    return res;
 }
 
 float printDCB(float2 vStringCoords, int dcb_digit) {
@@ -149,24 +173,20 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     sign = ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
     // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
     if ( float_to_decode == 0.0 ) {
-        expf = -126.0;
-        exp = 0;
-        mant = 0;
-        fixed_point = int2(0,0);
+        expf = -126.0; exp = 0; mant = 0; fixed_point = int2(0,0);
         dcb_digit = (wanted_digit==8 || wanted_digit==10)?0:(wanted_digit==9?11:12); // for 0.0
         return;
     }
-    // remark : isfinite() is defined in HLSL but not in GLSL
+    // remark : !isfinite() whould work in HLSL but not defined in GLSL
     if ( isnan(float_to_decode) || isinf(float_to_decode) ) {
         expf = float_to_decode; // non-finite value as a placeholder
-        exp = 255;
-        mant = 0;
-        fixed_point = int2(0,0);
+        exp = 255; mant = 0; fixed_point = int2(0,0);
         dcb_digit = (wanted_digit>5 && wanted_digit<9)
             ?isnan(float_to_decode)?10:15
             :(wanted_digit==4 && sign==-1)?13:12; // for +/-NaN or +/-inf
         return;
     }
+    // We will transform float_to_decode to conviniently decode it, do it in a copy for clarity
     float float_tmp = abs(float_to_decode);
 
     // Exponent extraction (for all finite cases)
@@ -189,7 +209,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
             mant += 1;
             // Fixed point is split into integer part and fractionnal part
             // The way the floats are encoded garantee there is not carry to handle between those two parts
-            fixed_point += float_decode_fixed_point_table(int(mantissa_pow));
+            fixed_point += float_decode_fixed_point_table(mantissa_pow);
             //TODO if expf > 23, no fractionnal part will be encoded (all bits for integer part)
             //TODO if expf > 29, fixed_point should use 1.000000e+30 notation ?
         }
@@ -207,9 +227,9 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     } else if ( wanted_digit == 10 ) {
         dcb_digit = 11; // for '.'
     } else if ( wanted_digit < 10 ) {
-        dcb_digit = int_decode_decimal(fixed_point[0], wanted_digit);
+        dcb_digit = int_decode_decimal(fixed_point[0], wanted_digit, 9);
     } else {
-        dcb_digit = int_decode_decimal(fixed_point[1], wanted_digit-9);
+        dcb_digit = int_decode_decimal(fixed_point[1], wanted_digit-9, 9);
     }
 }
 #endif /* _PRINT_VALUE_HLSL */
@@ -241,16 +261,13 @@ VertData VSDefault(VertData v_in)
 
 float4 EffectLinear(float2 uv)
 {
-    float aspect_ratio = vpixel/upixel;
     float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
 
     //float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
 
-    float font_ratio = float(DCB_FONT_GLYPH_HEIGHT)/float(DCB_FONT_GLYPH_WIDTH);
-    float2 text_right_top_anchor = float2(1.0,0.0);
-    float2 vStringCoords = (uv - text_right_top_anchor)*float2(aspect_ratio*font_ratio, 1.0)/font_size + float2(19.0, 0.0);
-    //TODO Make vStringCoords more understandable, with digit numbers from right to left maybe, ship a textGrid(uv, text_right_top_anchor) function to help
+    //TODO generalise use of underscore and not camel case
+    float2 vStringCoords = text_grid(uv, float2(1.0,0.0), font_size, vpixel/upixel);
 
     float4 debug_color1 = float4(1.0-rgba.rgb, rgba.a);
     float4 debug_color2 = float4(frac(vStringCoords.x), frac(vStringCoords.y), 1.0, 1.0);
@@ -278,7 +295,7 @@ float4 EffectLinear(float2 uv)
             rgba = lerp(rgba, debug_color2, printDCB(vStringCoords, dcb_digit) );
         }
         if ( insideBox(vStringCoords, float2(0.0, 1.0), float2(10.0, 2.0) ) ) {
-            int dcb_digit2 = int_decode_decimal(mant, wanted_digit);
+            int dcb_digit2 = int_decode_decimal(mant, wanted_digit, 6);
             rgba = lerp(rgba, debug_color2, printDCB(vStringCoords, dcb_digit2) );
         }
         if ( insideBox(vStringCoords, float2(0.0, 2.0), float2(10.0, 3.0) ) ) {
