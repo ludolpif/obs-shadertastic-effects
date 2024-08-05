@@ -66,11 +66,11 @@ float4 EffectLinear(float2 uv)
 
     // Display a red 3x3 pixel square around the pixel to debug, preserving the center pixel
     float2 uv_pixel = float2(upixel, vpixel);
-    if ( insideBox(uv, uv_pixel_to_debug, uv_pixel_to_debug+uv_pixel ) ) {
+    if ( inside_box(uv, uv_pixel_to_debug, uv_pixel_to_debug+uv_pixel ) ) {
         return rgba;
     }
     float2 uv_line_width = uv_pixel * 1.0;
-    if ( insideBox(uv, uv_pixel_to_debug-uv_line_width, uv_pixel_to_debug+uv_pixel+uv_line_width) ) {
+    if ( inside_box(uv, uv_pixel_to_debug-uv_line_width, uv_pixel_to_debug+uv_pixel+uv_line_width) ) {
         return color_red;
     }
 
@@ -78,10 +78,10 @@ float4 EffectLinear(float2 uv)
     float2 zoomed_center = (uv_pixel_to_debug - float2(0.5,0.5))/2.0 + float2(0.5, 0.5);
     float2 zoomed_topLeft = zoomed_center - 32.0*uv_pixel;
     float2 zoomed_bottomRight = zoomed_center + 32.0*uv_pixel;
-    if ( insideBox(uv, zoomed_topLeft, zoomed_bottomRight) ) {
+    if ( inside_box(uv, zoomed_topLeft, zoomed_bottomRight) ) {
         return rgba_pixel_to_debug;
     }
-    if ( insideBox(uv, zoomed_topLeft-uv_line_width, zoomed_bottomRight+uv_line_width) ) {
+    if ( inside_box(uv, zoomed_topLeft-uv_line_width, zoomed_bottomRight+uv_line_width) ) {
         return color_red;
     }
 

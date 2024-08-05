@@ -18,7 +18,7 @@ uniform float pixel_v;
 uniform int pixel_x;
 uniform int pixel_y;
 
-/* #include "../../shadertastic-lib/geometry/inside-box.hlsl" */
+/* #include "../../shadertastic-lib/geometry/inside_box.hlsl" */
 #ifndef _INSIDE_BOX_HLSL
 #define _INSIDE_BOX_HLSL
 /**
@@ -36,7 +36,7 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 }
 #endif /* _INSIDE_BOX_HLSL */
 
-/* #include "../../shadertastic-lib/debug/print-value.hlsl" */
+/* #include "../../shadertastic-lib/debug/print_value.hlsl" */
 #ifndef _PRINT_VALUE_HLSL
 #define _PRINT_VALUE_HLSL
 /* Inspired from https://www.shadertoy.com/view/3lGBDm ; Licensed under CC BY-NC-SA 3.0
