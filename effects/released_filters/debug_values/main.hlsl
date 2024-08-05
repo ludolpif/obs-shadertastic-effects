@@ -22,19 +22,18 @@ uniform int pixel_y;
 #ifndef _INSIDE_BOX_HLSL
 #define _INSIDE_BOX_HLSL
 /**
- * Returns true if v is included in the rectangle defined by topLeft (inclusive) and bottomRight (exclusive)
- * Alternative definition : with topLeft.x <= bottomRight.x and topLeft.y <= bottomRight.y,
- *  it returns ( topLeft.x <= v.x < bottomRight.x && topLeft.y <= v.y < bottomRight.y )
- * Behavior on limits is messy if topLeft.x > bottomRight.x or topLeft.y > bottomRight.y
+ * Returns true if v is included in the rectangle defined by left_top (inclusive) and right_bottom (exclusive)
+ * Alternative definition : with left_top.x <= right_bottom.x and left_top.y <= right_bottom.y,
+ *  it returns ( left_top.x <= v.x < right_bottom.x && left_top.y <= v.y < right_bottom.y )
+ * Behavior on limits is tricky if left_top.x > right_bottom.x or left_top.y > right_bottom.y
  * @param v coordinates of a point to test
- * @param topLeft coordinates of the top left corner of the rectangle
- * @param bottomRight coordinates of the bottom right corner of the rectangle
+ * @param left_top coordinates of the top left corner of the rectangle
+ * @param right_bottom coordinates of the bottom right corner of the rectangle
  */
-bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
-    float2 s = step(topLeft, v) - step(bottomRight, v);
+bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
+    float2 s = step(left_top, v) - step(right_bottom, v);
     return s.x * s.y != 0.0;
 }
-
 #endif /* _INSIDE_BOX_HLSL */
 
 /* #include "../../shadertastic-lib/debug/print-value.hlsl" */
@@ -44,7 +43,7 @@ bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
     Font extracted with : zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf
     See : https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
 
-    dcb_digit is encoded with some extensions to 4-bits DCB: 0-9:digit, 10:NaN, 11:'.', 12:' ', 13:'-', 14:'e', 15:inf
+    dcb_digit is encoded with some extensions to 4-bits DCB: 0-9:digit, 10:'e', 11:'.', 12:' ', 13:'-', 14:nan', 15:inf
 */
 #define POW10_TABLE_VALUES 1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000
 #define POW2FP_INTEG_TABLE_VALUES 1,2,4,8,16,32,64,128,256,512,\
@@ -87,10 +86,10 @@ bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
 #define DCB_FONT_GLYPH_HEIGHT 6
 #define DCB_FONT_VALUES 2454816.0, 2302576.0, 2441840.0, 7611440.0, 5600320.0,\
     7418928.0, 6370592.0, 7610640.0, 6628656.0, 2450480.0,\
-    218448.0, 32.0, 0.0, 28672.0, 152416.0, 2110064.0, 415072.0, 4354592.0, 3416096.0
+    152416.0, 32.0, 0.0, 28672.0, 218448.0, 2110064.0, 415072.0, 4354592.0, 3416096.0
 /* Characters in the font
  * [0] to [9] : 0123456789
- * [10]:'n' [11]:'.' [12]:' ' [13]:'-' [14]:'e' [16]:'i' [17]:'a' [18]:'f' [19]:'?' */
+ * [10]:'e' [11]:'.' [12]:' ' [13]:'-' [14]:'n' [15]:'i' [16]:'a' [17]:'f' [18]:'?' */
 #endif /* DCB_FONT_VALUES */
 
 //TODO Make text_grid more understandable, with digit numbers from right to left
@@ -162,7 +161,7 @@ int2 float_decode_fixed_point_table(float mantissa_pow) {
     return res;
 }
 
-float print_DCB(float2 text_coords, int dcb_digit) {
+float print_dcb(float2 text_coords, int dcb_digit) {
     // TODO update font extractor script
     // TODO don't make y-mirror and remove the 1.0-y here (or keep it for Shadertoy version?)
 #ifdef _OPENGL
@@ -192,8 +191,8 @@ void float_decode(in float float_to_decode, in int wanted_digit,
         expf = float_to_decode; // non-finite value as a placeholder
         exp = 255; mant = 0; fixed_point = int2(0,0);
         dcb_digit = (wanted_digit>5 && wanted_digit<9)
-            ?isnan(float_to_decode)?10:15
-            :(wanted_digit==4 && sign==-1)?13:12; // for +/-NaN or +/-inf
+            ?isnan(float_to_decode)?14:15
+            :(wanted_digit==4 && sign==-1)?13:12; // for +/-nan or +/-inf
         return;
     }
     // We will transform float_to_decode to conviniently decode it, do it in a copy for clarity
@@ -282,19 +281,17 @@ float4 EffectLinear(float2 uv)
     float4 debug_color2 = float4(1.0, 0.0, 0.0, 1.0);
 
     //TODO lerp() is bad for mixing with alpha as used for now
- 
-    //TODO generalise use of underscore and not camel case
     float2 text_coords = text_coords_from_uv(uv, float2(1.0,0.0), vpixel/upixel, font_size, float2(-19.0,0.0) );
     rgba = lerp(rgba, debug_color0, print_text_grid(text_coords));
 
     // DCB font test display
-    if ( insideBox(text_coords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
+    if ( inside_box(text_coords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
         int wanted_digit = int(text_coords.x);
         int dcb_digit = wanted_digit;
-        rgba = lerp(rgba, debug_color2, print_DCB(text_coords, dcb_digit) );
+        rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
     }
 
-    if ( insideBox(text_coords, float2(0.0, 1.0), float2(19.0, 4.0) ) ) {
+    if ( inside_box(text_coords, float2(0.0, 1.0), float2(19.0, 6.0) ) ) {
         // float_decode() in:
         float float_to_decode = debug_value;
         //float float_to_decode = time;
@@ -306,17 +303,27 @@ float4 EffectLinear(float2 uv)
         // float_decode() call:
         float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
         // displaying parts of the result
-        if ( insideBox(text_coords, float2(0.0, 3.0), float2(19.0, 4.0) ) ) {
-            rgba = lerp(rgba, debug_color2, print_DCB(text_coords, dcb_digit) );
+        if ( inside_box(text_coords, float2(0.0, 3.0), float2(19.0, 4.0) ) ) {
+            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
         }
-        if ( insideBox(text_coords, float2(0.0, 1.0), float2(10.0, 2.0) ) ) {
+        if ( inside_box(text_coords, float2(0.0, 1.0), float2(10.0, 2.0) ) ) {
             int dcb_digit2 = int_decode_decimal(mant, wanted_digit, 6);
-            rgba = lerp(rgba, debug_color2, print_DCB(text_coords, dcb_digit2) );
+            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit2) );
         }
-        if ( insideBox(text_coords, float2(0.0, 2.0), float2(10.0, 3.0) ) ) {
+        if ( inside_box(text_coords, float2(0.0, 2.0), float2(10.0, 3.0) ) ) {
             float_to_decode = expf;
             float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
-            rgba = lerp(rgba, debug_color2, print_DCB(text_coords, dcb_digit) );
+            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
+        }
+        if ( inside_box(text_coords, float2(0.0, 4.0), float2(10.0, 5.0) ) ) {
+            float_to_decode = -1.0/0.0; // Should -inf
+            float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
+            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
+        }
+        if ( inside_box(text_coords, float2(0.0, 5.0), float2(10.0, 6.0) ) ) {
+            float_to_decode = sqrt(-1.0); // Maybe +nan
+            float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
+            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
         }
     }
 
