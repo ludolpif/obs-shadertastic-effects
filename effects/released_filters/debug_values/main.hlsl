@@ -95,9 +95,19 @@ bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
 
 //TODO Make text_grid more understandable, with digit numbers from right to left
 //XXX add rotation or vertical option ? add char offset option ? clarify uv / char args
-float2 text_grid(float2 uv, float2 text_right_top_anchor, float text_height, float aspect_ratio) {
+float2 text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio, in float uv_line_height, in float2 char_offset) {
     float font_ratio = float(DCB_FONT_GLYPH_HEIGHT)/float(DCB_FONT_GLYPH_WIDTH);
-    return (uv - text_right_top_anchor)*float2(aspect_ratio*font_ratio, 1.0)/text_height + float2(19.0, 0.0);
+    return (uv - uv_grid_origin)*float2(uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - char_offset;
+}
+
+float print_text_grid(in float2 text_coords) {
+    float2 line_width = 1.0/float2(DCB_FONT_GLYPH_WIDTH,DCB_FONT_GLYPH_HEIGHT);
+    if ( (1.0-frac(text_coords.x)) < line_width.x
+            || (1.0-frac(text_coords.y) < line_width.y) ) {
+        return 0.3;
+    }
+    if ( text_coords.x >= 0.0 && text_coords.x <= 1.0 && text_coords.y >= 0.0 && text_coords.y <= 1.0 ) return 0.8;
+    return 0.0;
 }
 
 // To ease a rudimentary printf("%d",x) this function we will return decimal digit of rank wanted_digit [0;10[
@@ -152,7 +162,7 @@ int2 float_decode_fixed_point_table(float mantissa_pow) {
     return res;
 }
 
-float printDCB(float2 vStringCoords, int dcb_digit) {
+float print_DCB(float2 text_coords, int dcb_digit) {
     // TODO update font extractor script
     // TODO don't make y-mirror and remove the 1.0-y here (or keep it for Shadertoy version?)
 #ifdef _OPENGL
@@ -163,7 +173,7 @@ float printDCB(float2 vStringCoords, int dcb_digit) {
     float w = float(DCB_FONT_GLYPH_WIDTH);
     float h = float(DCB_FONT_GLYPH_HEIGHT);
     int i = (dcb_digit >= 0 && dcb_digit < 19)?dcb_digit:18;
-    return floor(fmod((font[i] / pow(2.0, floor(fract(vStringCoords.x) * w) + (floor((1.0-frac(vStringCoords.y)) * h) * w))), 2.0));
+    return floor(fmod((font[i] / pow(2.0, floor(fract(text_coords.x) * w) + (floor((1.0-frac(text_coords.y)) * h) * w))), 2.0));
 }
 
 void float_decode(in float float_to_decode, in int wanted_digit,
@@ -214,7 +224,8 @@ void float_decode(in float float_to_decode, in int wanted_digit,
             //TODO if expf > 29, fixed_point should use 1.000000e+30 notation ?
         }
     }
-    // Manually round fixed_point from 9 to 8 digits because the 9th digit is not exact with the table we have (and can't put 5e9 in int)
+    // Manually round fixed_point fractionnal part from 9 to 8 digits because the 9th digit
+    //  is not always exact with the table we use (and we can't put 5e9 in int)
     int to_be_rounded = fixed_point[1];
     if ( to_be_rounded % 10 >= 5 ) to_be_rounded += 10;
     fixed_point[1] = to_be_rounded / 10;
@@ -263,27 +274,31 @@ float4 EffectLinear(float2 uv)
 {
     float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
 
-    //float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
+    float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
 
-    //TODO generalise use of underscore and not camel case
-    float2 vStringCoords = text_grid(uv, float2(1.0,0.0), font_size, vpixel/upixel);
-
+    float4 debug_color0 = float4(0.0, 0.0, 0.0, 1.0);
     float4 debug_color1 = float4(1.0-rgba.rgb, rgba.a);
-    float4 debug_color2 = float4(frac(vStringCoords.x), frac(vStringCoords.y), 1.0, 1.0);
+    float4 debug_color2 = float4(1.0, 0.0, 0.0, 1.0);
+
+    //TODO lerp() is bad for mixing with alpha as used for now
+ 
+    //TODO generalise use of underscore and not camel case
+    float2 text_coords = text_coords_from_uv(uv, float2(1.0,0.0), vpixel/upixel, font_size, float2(-19.0,0.0) );
+    rgba = lerp(rgba, debug_color0, print_text_grid(text_coords));
 
     // DCB font test display
-    if ( insideBox(vStringCoords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
-        int wanted_digit = int(vStringCoords.x);
+    if ( insideBox(text_coords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
+        int wanted_digit = int(text_coords.x);
         int dcb_digit = wanted_digit;
-        rgba = lerp(rgba, debug_color1, printDCB(vStringCoords, dcb_digit) );
+        rgba = lerp(rgba, debug_color2, print_DCB(text_coords, dcb_digit) );
     }
 
-    if ( insideBox(vStringCoords, float2(0.0, 1.0), float2(19.0, 4.0) ) ) {
+    if ( insideBox(text_coords, float2(0.0, 1.0), float2(19.0, 4.0) ) ) {
         // float_decode() in:
         float float_to_decode = debug_value;
         //float float_to_decode = time;
-        int wanted_digit = int(vStringCoords.x);
+        int wanted_digit = int(text_coords.x);
         // float_decode() out:
         int sign, exp, mant, dcb_digit;
         float expf;
@@ -291,17 +306,17 @@ float4 EffectLinear(float2 uv)
         // float_decode() call:
         float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
         // displaying parts of the result
-        if ( insideBox(vStringCoords, float2(0.0, 3.0), float2(19.0, 4.0) ) ) {
-            rgba = lerp(rgba, debug_color2, printDCB(vStringCoords, dcb_digit) );
+        if ( insideBox(text_coords, float2(0.0, 3.0), float2(19.0, 4.0) ) ) {
+            rgba = lerp(rgba, debug_color2, print_DCB(text_coords, dcb_digit) );
         }
-        if ( insideBox(vStringCoords, float2(0.0, 1.0), float2(10.0, 2.0) ) ) {
+        if ( insideBox(text_coords, float2(0.0, 1.0), float2(10.0, 2.0) ) ) {
             int dcb_digit2 = int_decode_decimal(mant, wanted_digit, 6);
-            rgba = lerp(rgba, debug_color2, printDCB(vStringCoords, dcb_digit2) );
+            rgba = lerp(rgba, debug_color2, print_DCB(text_coords, dcb_digit2) );
         }
-        if ( insideBox(vStringCoords, float2(0.0, 2.0), float2(10.0, 3.0) ) ) {
+        if ( insideBox(text_coords, float2(0.0, 2.0), float2(10.0, 3.0) ) ) {
             float_to_decode = expf;
             float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
-            rgba = lerp(rgba, debug_color2, printDCB(vStringCoords, dcb_digit) );
+            rgba = lerp(rgba, debug_color2, print_DCB(text_coords, dcb_digit) );
         }
     }
 
