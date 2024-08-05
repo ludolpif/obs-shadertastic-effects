@@ -84,25 +84,37 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 #ifndef DCB_FONT_VALUES
 #define DCB_FONT_GLYPH_WIDTH 4
 #define DCB_FONT_GLYPH_HEIGHT 6
-#define DCB_FONT_VALUES 2454816.0, 2302576.0, 2441840.0, 7611440.0, 5600320.0,\
-    7418928.0, 6370592.0, 7610640.0, 6628656.0, 2450480.0,\
-    152416.0, 32.0, 0.0, 28672.0, 218448.0, 2110064.0, 415072.0, 4354592.0, 3416096.0
-/* Characters in the font
- * [0] to [9] : 0123456789
- * [10]:'e' [11]:'.' [12]:' ' [13]:'-' [14]:'n' [15]:'i' [16]:'a' [17]:'f' [18]:'?' */
+#define DCB_FONT_VALUES \
+        /* 0 */ 4909632.0, \
+        /* 1 */ 14961728.0, \
+        /* 2 */ 14953024.0, \
+        /* 3 */ 12731104.0, \
+        /* 4 */ 2288288.0, \
+        /* 5 */ 12765408.0, \
+        /* 6 */ 4900960.0, \
+        /* 7 */ 8930016.0, \
+        /* 8 */ 13257312.0, \
+        /* 9 */ 12741184.0, \
+        /* e */ 7119872.0, \
+        /* . */ 4194304.0, \
+        /*   */ 0.0, \
+        /* - */ 57344.0, \
+        /* n */ 11185152.0, \
+        /* i */ 14991424.0, \
+        /* a */ 6989312.0, \
+        /* f */ 4514848.0, \
+        /* ? */ 4211392.0
 #endif /* DCB_FONT_VALUES */
 
-//TODO Make text_grid more understandable, with digit numbers from right to left
-//XXX add rotation or vertical option ? add char offset option ? clarify uv / char args
 float2 text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio, in float uv_line_height, in float2 char_offset) {
     float font_ratio = float(DCB_FONT_GLYPH_HEIGHT)/float(DCB_FONT_GLYPH_WIDTH);
-    return (uv - uv_grid_origin)*float2(uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - char_offset;
+    return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - char_offset*float2(-1.0,1.0);
 }
 
 float print_text_grid(in float2 text_coords) {
     float2 line_width = 1.0/float2(DCB_FONT_GLYPH_WIDTH,DCB_FONT_GLYPH_HEIGHT);
-    if ( (1.0-frac(text_coords.x)) < line_width.x
-            || (1.0-frac(text_coords.y) < line_width.y) ) {
+    if ( frac(text_coords.x) < line_width.x
+            || frac(text_coords.y) < line_width.y ) {
         return 0.3;
     }
     if ( text_coords.x >= 0.0 && text_coords.x <= 1.0 && text_coords.y >= 0.0 && text_coords.y <= 1.0 ) return 0.8;
@@ -162,8 +174,6 @@ int2 float_decode_fixed_point_table(float mantissa_pow) {
 }
 
 float print_dcb(float2 text_coords, int dcb_digit) {
-    // TODO update font extractor script
-    // TODO don't make y-mirror and remove the 1.0-y here (or keep it for Shadertoy version?)
 #ifdef _OPENGL
 	const float font[19] = float[19](DCB_FONT_VALUES);
 #else
@@ -172,7 +182,7 @@ float print_dcb(float2 text_coords, int dcb_digit) {
     float w = float(DCB_FONT_GLYPH_WIDTH);
     float h = float(DCB_FONT_GLYPH_HEIGHT);
     int i = (dcb_digit >= 0 && dcb_digit < 19)?dcb_digit:18;
-    return floor(fmod((font[i] / pow(2.0, floor(fract(text_coords.x) * w) + (floor((1.0-frac(text_coords.y)) * h) * w))), 2.0));
+    return floor(fmod(font[i] / pow(2.0, floor( frac(text_coords.x)*w ) + floor( frac(text_coords.y)*h )*w), 2.0));
 }
 
 void float_decode(in float float_to_decode, in int wanted_digit,
@@ -281,12 +291,14 @@ float4 EffectLinear(float2 uv)
     float4 debug_color2 = float4(1.0, 0.0, 0.0, 1.0);
 
     //TODO lerp() is bad for mixing with alpha as used for now
-    float2 text_coords = text_coords_from_uv(uv, float2(1.0,0.0), vpixel/upixel, font_size, float2(-19.0,0.0) );
-    rgba = lerp(rgba, debug_color0, print_text_grid(text_coords));
+    float2 text_coords = text_coords_from_uv(uv, float2(0.5,0.0), vpixel/upixel, font_size, float2(0.0,1.0) );
+    if ( inside_box(text_coords, float2(-8.0, 0.0), float2(11.0, 6.0) ) ) {
+        rgba = lerp(rgba, debug_color0, print_text_grid(text_coords));
+    }
 
     // DCB font test display
-    if ( inside_box(text_coords, float2(0.0, 0.0), float2(19.0, 1.0) ) ) {
-        int wanted_digit = int(text_coords.x);
+    if ( inside_box(text_coords, float2(-8.0, 0.0), float2(11.0, 1.0) ) ) {
+        int wanted_digit = int(11-text_coords.x);
         int dcb_digit = wanted_digit;
         rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
     }
