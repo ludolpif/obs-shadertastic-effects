@@ -1,0 +1,28 @@
+{
+  "label": "Alpha Blend",
+  "parameters": [
+    {
+      "name": "alpha_amount",
+      "label": "Alpha amount",
+      "type": "double",
+      "slider": true,
+      "min": 0,
+      "max": 1,
+      "default": 0.5
+    },
+    {
+      "name": "blending_amount",
+      "label": "Blending amount",
+      "type": "double",
+      "slider": true,
+      "min": 0,
+      "max": 1,
+      "default": 0.5
+    },
+    {
+      "name": "mix_color",
+      "label": "Mixing color",
+      "type": "color"
+    }
+  ]
+}
