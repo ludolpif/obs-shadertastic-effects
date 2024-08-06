@@ -1,6 +1,6 @@
 #!/bin/bash
-x11_names_regex='period|zero|one|two|three|four|five|six|seven|eight|nine|question|[a-finx]|minus'
-ascii_repr='.0123456789?abcdefinx-'
+x11_names_regex='period|zero|one|two|three|four|five|six|seven|eight|nine|plus|question|[a-finx]|minus'
+ascii_repr='.0123456789+?abcdefinx-'
 
 zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x11_names_regex)$" \
 	| awk --non-decimal-data -v ascii_repr="$ascii_repr" \
