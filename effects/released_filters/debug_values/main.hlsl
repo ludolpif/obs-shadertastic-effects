@@ -331,9 +331,9 @@ float4 EffectLinear(float2 uv)
 
     if ( inside_box(text_coords, float2(-8.0, 1.0), float2(11.0, 6.0) ) ) {
         // float_decode() in:
-        float float_to_decode = debug_value;
-        //float float_to_decode = time;
-        int wanted_digit = text_coords.x>0.0?int(text_coords.x):int(text_coords.x)-1; // TODO try to simplify ?
+        float float_to_decode = debug_value + time;
+        int wanted_digit = int(round(text_coords.x-0.5));
+        // wanted_digit: floor() will make a double wanted_digit==0 for text_coords in [-1.0;1.0], round() will not
         // float_decode() out:
         int sign, exp, mant, glyph_index;
         float expf;
@@ -358,7 +358,7 @@ float4 EffectLinear(float2 uv)
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
         if ( inside_box(text_coords, float2(-8.0, 5.0), float2(11.0, 6.0) ) ) {
-            float_to_decode = sqrt(-1.0); // Maybe +nan (GLSL) or +1 (HLSL WTF)
+            float_to_decode = sqrt(-1.0); // Maybe +nan
             float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
