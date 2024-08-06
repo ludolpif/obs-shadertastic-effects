@@ -84,6 +84,7 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 #ifndef DCB_FONT_VALUES
 #define DCB_FONT_GLYPH_WIDTH 4
 #define DCB_FONT_GLYPH_HEIGHT 6
+//TODO add x and b for 0x and 0b, add [a-f], gave up on DCB naming/convention ?
 #define DCB_FONT_VALUES \
         /* 0 */ 4909632.0, \
         /* 1 */ 14961728.0, \
@@ -95,8 +96,8 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
         /* 7 */ 8930016.0, \
         /* 8 */ 13257312.0, \
         /* 9 */ 12741184.0, \
-        /* e */ 7119872.0, \
         /* . */ 4194304.0, \
+        /* e */ 7119872.0, \
         /*   */ 0.0, \
         /* - */ 57344.0, \
         /* n */ 11185152.0, \
@@ -128,14 +129,14 @@ int int_decode_decimal(in int int_to_decode, in int wanted_digit, in int total_d
 #else
 	static int pow10_table[10] = {POW10_TABLE_VALUES};
 #endif
-	if ( wanted_digit > 9 || (9-wanted_digit) > total_digits) {
+	if ( wanted_digit <= 0 || wanted_digit > total_digits+1) {
         return 12; // ' '
     }
-	if ( wanted_digit == 0 ) {
+	if ( wanted_digit == total_digits+1 ) {
 		return int_to_decode<0?13:12; // '-' or ' '
 	}
-    int pow10_next = pow10_table[10-wanted_digit];
-    int pow10_curr = pow10_table[9-wanted_digit];
+    int pow10_next = pow10_table[wanted_digit];
+    int pow10_curr = pow10_table[wanted_digit-1];
     return ( abs(int_to_decode) % pow10_next ) / pow10_curr;
 }
 
@@ -185,22 +186,25 @@ float print_dcb(float2 text_coords, int dcb_digit) {
     return floor(fmod(font[i] / pow(2.0, floor( frac(text_coords.x)*w ) + floor( frac(text_coords.y)*h )*w), 2.0));
 }
 
+int float_sign(in float float_to_decode) {
+    return ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
+}
 void float_decode(in float float_to_decode, in int wanted_digit,
         out int sign, out int exp, out int mant, out float expf, out int2 fixed_point, out int dcb_digit)
 {
     // Floats numbers are coded in IEEE754 in a way roughly representable as sign*2^expf*(1+mantissa_fractionnal)
-    sign = ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
+    sign = float_sign(float_to_decode);
     // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
     if ( float_to_decode == 0.0 ) {
         expf = -126.0; exp = 0; mant = 0; fixed_point = int2(0,0);
-        dcb_digit = (wanted_digit==8 || wanted_digit==10)?0:(wanted_digit==9?11:12); // for 0.0
+        dcb_digit = (wanted_digit==-1 || wanted_digit==1)?0:(wanted_digit==0?10:12); // for 0.0
         return;
     }
     // remark : !isfinite() whould work in HLSL but not defined in GLSL
     if ( isnan(float_to_decode) || isinf(float_to_decode) ) {
         expf = float_to_decode; // non-finite value as a placeholder
         exp = 255; mant = 0; fixed_point = int2(0,0);
-        dcb_digit = (wanted_digit>5 && wanted_digit<9)
+        dcb_digit = (wanted_digit>0 && wanted_digit<4)
             ?isnan(float_to_decode)?14:15
             :(wanted_digit==4 && sign==-1)?13:12; // for +/-nan or +/-inf
         return;
@@ -209,7 +213,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     float float_tmp = abs(float_to_decode);
 
     // Exponent extraction (for all finite cases)
-    expf = floor(log2(float_tmp)); // float exponent without -127 offset (out paraeter)
+    expf = floor(log2(float_tmp)); // float exponent without -127 offset (out parameter)
     int expi = int(expf); // int exponent without -127 offset (internal use)
     exp = expi + 127; // IEEE754 encoded 8bits-wide exponent (out parameter)
 
@@ -239,17 +243,16 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     if ( to_be_rounded % 10 >= 5 ) to_be_rounded += 10;
     fixed_point[1] = to_be_rounded / 10;
 
-    // To ease a rudimentary printf("%f",x) function we will return in dcb_digit a decimal digit of rank wanted_digit [0;18[
-    if ( wanted_digit < 0 || wanted_digit > 18 ) {
+    //TODO calc pow10 fixed_point[0] to get grid of non signficiant 0's
+    // To ease a rudimentary printf("%f",x) function we will return in dcb_digit a decimal digit of rank wanted_digit [-9;10]
+    if ( wanted_digit < -8 || wanted_digit > 10 ) {
         dcb_digit = 12; // for ' '
+    } else if ( wanted_digit > 0 ) {
+        dcb_digit = int_decode_decimal(sign*fixed_point[0], wanted_digit, 9);
     } else if ( wanted_digit == 0 ) {
-        dcb_digit = (sign==-1)?13:12; // for '-' or '+'
-    } else if ( wanted_digit == 10 ) {
-        dcb_digit = 11; // for '.'
-    } else if ( wanted_digit < 10 ) {
-        dcb_digit = int_decode_decimal(fixed_point[0], wanted_digit, 9);
-    } else {
-        dcb_digit = int_decode_decimal(fixed_point[1], wanted_digit-9, 9);
+        dcb_digit = 10; // for '.'
+    } else /* ( wanted_digit < 0 ) */ {
+        dcb_digit = int_decode_decimal(fixed_point[1], wanted_digit+9, 8);
     }
 }
 #endif /* _PRINT_VALUE_HLSL */
@@ -303,11 +306,11 @@ float4 EffectLinear(float2 uv)
         rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
     }
 
-    if ( inside_box(text_coords, float2(0.0, 1.0), float2(19.0, 6.0) ) ) {
+    if ( inside_box(text_coords, float2(-8.0, 1.0), float2(10.0, 6.0) ) ) {
         // float_decode() in:
         float float_to_decode = debug_value;
         //float float_to_decode = time;
-        int wanted_digit = int(text_coords.x);
+        int wanted_digit = text_coords.x>0.0?int(text_coords.x):int(text_coords.x)-1; // TODO try to simplify ?
         // float_decode() out:
         int sign, exp, mant, dcb_digit;
         float expf;
@@ -315,24 +318,23 @@ float4 EffectLinear(float2 uv)
         // float_decode() call:
         float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
         // displaying parts of the result
-        if ( inside_box(text_coords, float2(0.0, 3.0), float2(19.0, 4.0) ) ) {
+        if ( inside_box(text_coords, float2(-8.0, 3.0), float2(10.0, 4.0) ) ) {
             rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
         }
         if ( inside_box(text_coords, float2(0.0, 1.0), float2(10.0, 2.0) ) ) {
-            int dcb_digit2 = int_decode_decimal(mant, wanted_digit, 6);
-            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit2) );
+            dcb_digit = int_decode_decimal(mant, wanted_digit, 7);
+            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
         }
-        if ( inside_box(text_coords, float2(0.0, 2.0), float2(10.0, 3.0) ) ) {
-            float_to_decode = expf;
+        if ( inside_box(text_coords, float2(-8.0, 2.0), float2(10.0, 3.0) ) ) {
+            dcb_digit = int_decode_decimal(int(expf), wanted_digit, 3);
+            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
+        }
+        if ( inside_box(text_coords, float2(-8.0, 4.0), float2(10.0, 5.0) ) ) {
+            float_to_decode = -1.0/0.0; // Should be -inf
             float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
             rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
         }
-        if ( inside_box(text_coords, float2(0.0, 4.0), float2(10.0, 5.0) ) ) {
-            float_to_decode = -1.0/0.0; // Should -inf
-            float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
-            rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );
-        }
-        if ( inside_box(text_coords, float2(0.0, 5.0), float2(10.0, 6.0) ) ) {
+        if ( inside_box(text_coords, float2(-8.0, 5.0), float2(10.0, 6.0) ) ) {
             float_to_decode = sqrt(-1.0); // Maybe +nan
             float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, dcb_digit);
             rgba = lerp(rgba, debug_color2, print_dcb(text_coords, dcb_digit) );

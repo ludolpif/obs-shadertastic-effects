@@ -1,6 +1,6 @@
 #!/bin/bash
-x11_names_regex='space|period|zero|one|two|three|four|five|six|seven|eight|nine|question|[aefin]|minus'
-ascii_repr=' .0123456789?aefin-'
+x11_names_regex='period|zero|one|two|three|four|five|six|seven|eight|nine|question|[a-finx]|minus'
+ascii_repr='.0123456789?abcdefinx-'
 
 zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x11_names_regex)$" \
 	| awk --non-decimal-data -v ascii_repr="$ascii_repr" \
@@ -8,10 +8,11 @@ zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x
         for(n=0;n<256;n++)ord[sprintf("%c",n)]=n;
 		char_indice=1; font_width=4; font_height=6; def=0;
 		indent="    "; indent2="        ";
-        print "#ifndef DCB_FONT_VALUES"
-        print "#define DCB_FONT_GLYPH_WIDTH " font_width
-        print "#define DCB_FONT_GLYPH_HEIGHT " font_height
-        print "#define DCB_FONT_VALUES \\"
+        print "#ifndef PRINT_VALUE_FONT_GLYPHS"
+        print "#define PRINT_VALUE_FONT_GLYPH_WIDTH " font_width
+        print "#define PRINT_VALUE_FONT_GLYPH_HEIGHT " font_height
+        print "#define PRINT_VALUE_FONT_GLYPHS \\"
+        print indent2 "/*\" \"*/ 0.0, \\"
 	}
     /^STARTCHAR/ { 
         character=0;
@@ -36,6 +37,7 @@ zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x
 	}
 	END {
 		print indent2 "/* ? */ " def ".0";
+        print "#endif /* PRINT_VALUE_FONT_GLYPHS */"
 	}
 '
 #STARTCHAR nine
