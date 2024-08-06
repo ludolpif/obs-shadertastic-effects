@@ -84,7 +84,7 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 #define PRINT_VALUE_FONT_GLYPH_HEIGHT 6
 #define PRINT_VALUE_FONT_GLYPHS \
         /*" "*/ 0.0, \
-        /* + */ 4514880.0, \
+        /* + */ 320512.0, \
         /* . */ 4194304.0, \
         /* 0 */ 4909632.0, \
         /* 1 */ 14961728.0, \
@@ -108,6 +108,10 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
         /* - */ 57344.0, \
         /* ? */ 4211392.0
 #endif /* PRINT_VALUE_FONT_GLYPHS */
+/* Note : '+' is 4514880.0 from the x11 font + script, but it's ugly, manually changed here. */
+
+//TODO make all javadoc style explanation of all functions and parameters
+//TODO choose a common prefix to not pollute namespace, add guards as if each func will be in a separate file in lib
 
 float2 text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio, in float uv_line_height, in float2 char_offset) {
     float font_ratio = float(PRINT_VALUE_FONT_GLYPH_HEIGHT)/float(PRINT_VALUE_FONT_GLYPH_WIDTH);
