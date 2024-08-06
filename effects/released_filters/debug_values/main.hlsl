@@ -151,6 +151,8 @@ int int_decode_decimal(in int int_to_decode, in int wanted_digit) {
     return int_decode_decimal_fixed(int_to_decode, wanted_digit, total_digits);
 }
 
+//TODO add int_decode_hex() and int_decode_binary()
+
 int2 float_decode_fixed_point_table(float mantissa_pow) {
     /*
      * fixed-point as int2. The first is integer part, the second is fractionnal part.
@@ -257,7 +259,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
             //TODO if expf > 29, fixed_point should use 1.000000e+30 notation ?
         }
     }
-    //TODO may the use want to round are arbitraty number of digit, allow it
+    //TODO may the user want to round are arbitraty number of digit, allow it
     // Manually round fixed_point fractionnal part from 9 to 8 digits because the 9th digit
     //  is not always exact with the table we use (and we can't put 5e9 in int)
     int to_be_rounded = fixed_point[1];
