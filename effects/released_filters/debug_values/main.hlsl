@@ -44,10 +44,6 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
     See : https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
 */
 #define POW10_TABLE_VALUES 1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000
-#define POW2FP_INTEG_TABLE_VALUES 1,2,4,8,16,32,64,128,256,512,\
-    1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,\
-    1048576,2097152,4194304,8388608,16777216,\
-    33554432,67108864,134217728,268435456,536870912
 #define POW2FP_FRACT_TABLE_VALUES 0,\
     500000000,\
     250000000,\
@@ -118,17 +114,8 @@ float2 text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_a
     return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - char_offset*float2(-1.0,1.0);
 }
 
-float print_text_grid(in float2 text_coords) {
-    float2 line_width = 1.0/float2(PRINT_VALUE_FONT_GLYPH_WIDTH,PRINT_VALUE_FONT_GLYPH_HEIGHT);
-    if ( frac(text_coords.x) < line_width.x || frac(text_coords.y) < line_width.y ) {
-        return 0.3;
-    }
-    if ( inside_box(text_coords, float2(0.0, 0.0), float2(1.0, 1.0) ) ) return 0.8;
-    return 0.0;
-}
-
 // To ease a rudimentary printf("%d",x) this function return the character index to display at wanted_digit position
-int int_decode_decimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
+int decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
 #ifdef _OPENGL
     const int pow10_table[10] = int[10](POW10_TABLE_VALUES);
 #else
@@ -146,46 +133,47 @@ int int_decode_decimal_fixed(in int int_to_decode, in int wanted_digit, in int t
     return glyph_index;
 }
 
-int int_decode_decimal(in int int_to_decode, in int wanted_digit) {
+int decode_int_decimal(in int int_to_decode, in int wanted_digit) {
+    // Note: total_digits estimation is not always exact, may a leading 0 could appear
     int total_digits = 1 + int(log2(abs(int_to_decode))/log2(10));
-    return int_decode_decimal_fixed(int_to_decode, wanted_digit, total_digits);
+    return decode_int_decimal_fixed(int_to_decode, wanted_digit, total_digits);
 }
 
-//TODO add int_decode_hex() and int_decode_binary()
+//TODO add decode_int_hex() and decode_int_binary()
 
-int2 float_decode_fixed_point_table(float mantissa_pow) {
+int2 decode_float_fixed_point_table(float mantissa_pow) {
     /*
      * fixed-point as int2. The first is integer part, the second is fractionnal part.
      *   For negative powers, we use a +9 implied decimal fraction digits.
      *   So, to get the normal representation, divide the table value by 10^9.
+     *   
+     *   May someone has a better solution than a table for negative powers
+     *   of two multiplied by 10^9 without precision loss ?
      */
 #ifdef _OPENGL
-    const int pow2_table_pos[30] = int[30](POW2FP_INTEG_TABLE_VALUES);
     const int pow2_table_neg[31] = int[31](POW2FP_FRACT_TABLE_VALUES);
 #else
-    static int pow2_table_pos[30] = {POW2FP_INTEG_TABLE_VALUES};
     static int pow2_table_neg[31] = {POW2FP_FRACT_TABLE_VALUES};
 #endif
-    /*
-     * Why a table ?
-     * First: maybe someone will have a better solution than me (ludolpif, not a professionnal graphics programmer)
-     * Second: For some cases, we can skip using a table but not all, doing it may slow down things because of
-     *   different code paths (in GPU, funcs are inlined, loops are unrolled, same ASM instr is ran on multiple data)
-     * Third: it have to work on HLSL and GLSL.
-     *   for strictly positive powers, HLSL allows "1<<(i-1)" but it's not implemented in GLSL
-     *   pow(2.0,i) may or may not have precision issues because of float->int conversion of the result
-     */
-// TODO double check about <<, because it is in use in ~/git/obs-studio/plugins/obs-filters/data/rtx_greenscreen.effect !
     int i = int(mantissa_pow);
     int2 res;
-    if ( i < 30 && i >= 0 ) {
-        res = int2(pow2_table_pos[i],0);
+    if ( i < 32 && i >= 0 ) {
+        res = int2(1<<i, 0);
     } else if ( i < 0 && i > -31 ) {
-        res = int2(0,pow2_table_neg[-i]);
+        res = int2(0, pow2_table_neg[-i]);
     } else {
-        res = int2(0,0);
+        res = int2(0, 0);
     }
     return res;
+}
+
+float print_text_grid(in float2 text_coords) {
+    float2 line_width = 1.0/float2(PRINT_VALUE_FONT_GLYPH_WIDTH,PRINT_VALUE_FONT_GLYPH_HEIGHT);
+    if ( frac(text_coords.x) < line_width.x || frac(text_coords.y) < line_width.y ) {
+        return 0.3;
+    }
+    if ( inside_box(text_coords, float2(0.0, 0.0), float2(1.0, 1.0) ) ) return 0.8;
+    return 0.0;
 }
 
 float print_glyph(float2 text_coords, int glyph_index) {
@@ -200,11 +188,7 @@ float print_glyph(float2 text_coords, int glyph_index) {
     return floor(fmod(font[i] / pow(2.0, floor( frac(text_coords.x)*w ) + floor( frac(text_coords.y)*h )*w), 2.0));
 }
 
-int float_sign(in float float_to_decode) {
-    return ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
-}
-
-int float_print_special(in int sign, in int3 glyphs, in int wanted_digit) {
+int print_float_special_values(in int sign, in int3 glyphs, in int wanted_digit) {
     return
         wanted_digit==2?(sign==-1?22:1): // for '-' or '+'
         wanted_digit==1?glyphs[0]:
@@ -213,7 +197,11 @@ int float_print_special(in int sign, in int3 glyphs, in int wanted_digit) {
         0;
 }
 
-void float_decode(in float float_to_decode, in int wanted_digit,
+int float_sign(in float float_to_decode) {
+    return ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
+}
+
+void decode_float(in float float_to_decode, in int wanted_digit,
         out int sign, out int exp, out int mant, out float expf, out int2 fixed_point, out int glyph_index)
 {
     // Floats numbers are coded in IEEE754 in a way roughly representable as sign*2^expf*(1+mantissa_fractionnal)
@@ -221,14 +209,14 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
     if ( float_to_decode == 0.0 ) {
         expf = -126.0; exp = 0; mant = 0; fixed_point = int2(0,0);
-        glyph_index = float_print_special(sign, int3(3,2,3), wanted_digit); // for " +0.0 "
+        glyph_index = print_float_special_values(sign, int3(3,2,3), wanted_digit); // for " +0.0 "
         return;
     }
     if ( isnan(float_to_decode) || isinf(float_to_decode) ) {
         expf = float_to_decode; // non-finite value as a placeholder
         exp = 255; mant = 0; fixed_point = int2(0,0);
         int3 glyphs = isnan(float_to_decode)?int3(20,13,20):int3(19,20,18); // for "nan" or "inf"
-        glyph_index = float_print_special(sign, glyphs, wanted_digit);
+        glyph_index = print_float_special_values(sign, glyphs, wanted_digit);
         return;
     }
     // We will transform float_to_decode to conveniently decode it, do it in a copy for clarity
@@ -243,7 +231,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     // using only float values that are exactly represented in IEEE754 encoding (powers of two)
     mant = 0; // IEEE754 23bits-wide mantissa as int without the leading implicit one
     //fixed_point: limited range fixed point representation with 8 decimals for floats in [-10e9-1 ; 10e9-1]
-    fixed_point = float_decode_fixed_point_table(expi);
+    fixed_point = decode_float_fixed_point_table(expi);
     // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
     float mantissa_implicit_one = pow(2.0, expf);
     for ( float mantissa_pow = expf-1.0; mantissa_pow > expf-24.0; mantissa_pow -= 1.0 ) {
@@ -255,7 +243,7 @@ void float_decode(in float float_to_decode, in int wanted_digit,
             mant += 1;
             // Fixed point is split into integer part and fractionnal part
             // The way the floats are encoded garantee there is not carry to handle between those two parts
-            fixed_point += float_decode_fixed_point_table(mantissa_pow);
+            fixed_point += decode_float_fixed_point_table(mantissa_pow);
             //TODO if expf > 23, no fractionnal part will be encoded (all bits for integer part)
             //TODO if expf > 29, fixed_point should use 1.000000e+30 notation ?
         }
@@ -271,11 +259,11 @@ void float_decode(in float float_to_decode, in int wanted_digit,
     if ( wanted_digit < -8 || wanted_digit > 11 ) {
         glyph_index = 0; // for ' '
     } else if ( wanted_digit > 0 ) {
-        glyph_index = int_decode_decimal(sign*fixed_point[0], wanted_digit);
+        glyph_index = decode_int_decimal(sign*fixed_point[0], wanted_digit);
     } else if ( wanted_digit == 0 ) {
         glyph_index = 2; // for '.'
     } else /* ( wanted_digit < 0 ) */ {
-        glyph_index = int_decode_decimal_fixed(fixed_point[1], wanted_digit+9, 8);
+        glyph_index = decode_int_decimal_fixed(fixed_point[1], wanted_digit+9, 8);
     }
 }
 #endif /* _PRINT_VALUE_HLSL */
@@ -330,36 +318,36 @@ float4 EffectLinear(float2 uv)
     }
 
     if ( inside_box(text_coords, float2(-8.0, 1.0), float2(11.0, 6.0) ) ) {
-        // float_decode() in:
+        // decode_float() in:
         float float_to_decode = debug_value + time;
         int wanted_digit = int(round(text_coords.x-0.5));
         // wanted_digit: floor() will make a double wanted_digit==0 for text_coords in [-1.0;1.0], round() will not
-        // float_decode() out:
+        // decode_float() out:
         int sign, exp, mant, glyph_index;
         float expf;
         int2 fixed_point;
-        // float_decode() call:
-        float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+        // decode_float() call:
+        decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
         // displaying parts of the result
         if ( inside_box(text_coords, float2(-8.0, 3.0), float2(11.0, 4.0) ) ) {
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
         if ( inside_box(text_coords, float2(1.0, 1.0), float2(9.0, 2.0) ) ) {
-            glyph_index = int_decode_decimal(mant, wanted_digit);
+            glyph_index = decode_int_decimal(mant, wanted_digit);
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
         if ( inside_box(text_coords, float2(1.0, 2.0), float2(5.0, 3.0) ) ) {
-            glyph_index = int_decode_decimal(int(expf), wanted_digit);
+            glyph_index = decode_int_decimal(int(expf), wanted_digit);
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
         if ( inside_box(text_coords, float2(-8.0, 4.0), float2(11.0, 5.0) ) ) {
             float_to_decode = -1.0/0.0; // Should be -inf
-            float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+            decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
         if ( inside_box(text_coords, float2(-8.0, 5.0), float2(11.0, 6.0) ) ) {
             float_to_decode = sqrt(-1.0); // Maybe +nan
-            float_decode(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+            decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
     }
