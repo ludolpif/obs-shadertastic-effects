@@ -83,33 +83,6 @@ float2 text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_a
     return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - char_offset*float2(-1.0,1.0);
 }
 
-// To ease a rudimentary printf("%d",x) this function return the character index to display at wanted_digit position
-int decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
-#ifdef _OPENGL
-    const int pow10_table[10] = int[10](POW10_TABLE_VALUES);
-#else
-    static int pow10_table[10] = {POW10_TABLE_VALUES};
-#endif
-    if ( total_digits < 2 ) total_digits=1;
-    int glyph_index = 0; // for ' '
-    if ( wanted_digit == total_digits+1 ) {
-        glyph_index = int_to_decode<0?22:1; // for '-' or '+'
-    } else if ( wanted_digit > 0 && wanted_digit <= total_digits) {
-        int pow10_next = pow10_table[wanted_digit];
-        int pow10_curr = pow10_table[wanted_digit-1];
-        glyph_index = 3 + ( abs(int_to_decode) % pow10_next ) / pow10_curr;
-    }
-    return glyph_index;
-}
-
-int decode_int_decimal(in int int_to_decode, in int wanted_digit) {
-    // Note: total_digits estimation is not always exact, may a leading 0 could appear
-    int total_digits = 1 + int(log2(abs(int_to_decode))/log2(10));
-    return decode_int_decimal_fixed(int_to_decode, wanted_digit, total_digits);
-}
-
-//TODO add decode_int_hex() and decode_int_binary()
-
 float print_text_grid(in float2 text_coords) {
     float2 line_width = 1.0/float2(PRINT_VALUE_FONT_GLYPH_WIDTH,PRINT_VALUE_FONT_GLYPH_HEIGHT);
     if ( frac(text_coords.x) < line_width.x || frac(text_coords.y) < line_width.y ) {
@@ -139,6 +112,33 @@ int print_float_special_values(in int sign, in int3 glyphs, in int wanted_digit)
         wanted_digit==-1?glyphs[2]:
         0;
 }
+
+// To ease a rudimentary printf("%d",x) this function return the character index to display at wanted_digit position
+int decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
+#ifdef _OPENGL
+    const int pow10_table[10] = int[10](POW10_TABLE_VALUES);
+#else
+    static int pow10_table[10] = {POW10_TABLE_VALUES};
+#endif
+    if ( total_digits < 2 ) total_digits=1;
+    int glyph_index = 0; // for ' '
+    if ( wanted_digit == total_digits+1 ) {
+        glyph_index = int_to_decode<0?22:1; // for '-' or '+'
+    } else if ( wanted_digit > 0 && wanted_digit <= total_digits) {
+        int pow10_next = pow10_table[wanted_digit];
+        int pow10_curr = pow10_table[wanted_digit-1];
+        glyph_index = 3 + ( abs(int_to_decode) % pow10_next ) / pow10_curr;
+    }
+    return glyph_index;
+}
+
+int decode_int_decimal(in int int_to_decode, in int wanted_digit) {
+    // Note: total_digits estimation is not always exact, may a leading 0 could appear
+    int total_digits = 1 + int(log2(abs(int_to_decode))/log2(10));
+    return decode_int_decimal_fixed(int_to_decode, wanted_digit, total_digits);
+}
+
+//TODO add decode_int_hex() and decode_int_binary()
 
 int decode_float_sign(in float float_to_decode) {
     return ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
