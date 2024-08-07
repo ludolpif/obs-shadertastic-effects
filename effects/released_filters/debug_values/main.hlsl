@@ -175,6 +175,7 @@ int2 float_decode_fixed_point_table(float mantissa_pow) {
      *   for strictly positive powers, HLSL allows "1<<(i-1)" but it's not implemented in GLSL
      *   pow(2.0,i) may or may not have precision issues because of float->int conversion of the result
      */
+// TODO double check about <<, because it is in use in ~/git/obs-studio/plugins/obs-filters/data/rtx_greenscreen.effect !
     int i = int(mantissa_pow);
     int2 res;
     if ( i < 30 && i >= 0 ) {
@@ -324,8 +325,7 @@ float4 EffectLinear(float2 uv)
 
     // font test display
     if ( inside_box(text_coords, float2(-12.0, 0.0), float2(12.0, 1.0) ) ) {
-        int wanted_digit = int(12-text_coords.x);
-        int glyph_index = wanted_digit;
+        int glyph_index = int(12-text_coords.x);
         rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
     }
 
