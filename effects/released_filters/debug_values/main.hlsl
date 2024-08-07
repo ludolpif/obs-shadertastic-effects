@@ -139,6 +139,22 @@ int decode_int_decimal(in int int_to_decode, in int wanted_digit) {
 }
 
 //TODO add decode_int_hex() and decode_int_binary()
+// To ease a rudimentary printf("%x",x) this function return the character index to display at wanted_digit position
+int decode_int_hexadecimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
+    return 21; // for 'x'
+}
+int decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
+    if ( total_digits < 2 ) total_digits=1;
+    int glyph_index = 0; // for ' '
+    if ( wanted_digit == total_digits+2 ) {
+        glyph_index = 3; // for '0'
+    } else if ( wanted_digit == total_digits+1 ) {
+        glyph_index = 14; // for 'b'
+    } else if ( wanted_digit > 0 && wanted_digit <= total_digits) {
+        glyph_index = 3 + (int_to_decode >> (wanted_digit-1)) % 2; // for '0' or '1'
+    }
+    return glyph_index;
+}
 
 int decode_float_sign(in float float_to_decode) {
     return ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
@@ -181,14 +197,13 @@ void decode_float(in float float_to_decode, in int wanted_digit,
 
     // Exponent extraction (for all finite cases)
     expf = floor(log2(float_tmp)); // float exponent without -127 offset (out parameter)
-    int expi = int(expf); // int exponent without -127 offset (internal use)
-    exp = expi + 127; // IEEE754 encoded 8bits-wide exponent (out parameter)
+    exp = int(expf) + 127; // IEEE754 encoded 8bits-wide exponent (out parameter)
 
     // Extract the mantissa bit per bit, compute the fixed_point value simultaneously
     // using only float values that are exactly represented in IEEE754 encoding (powers of two)
     mant = 0; // IEEE754 23bits-wide mantissa as int without the leading implicit one
     //fixed_point: limited range fixed point representation with 8 decimals for floats in [-10e9-1 ; 10e9-1]
-    fixed_point = decode_float_mantissa_to_fixed_point(expi);
+    fixed_point = decode_float_mantissa_to_fixed_point(expf);
     // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
     float mantissa_implicit_one = pow(2.0, expf);
     for ( float mantissa_pow = expf-1.0; mantissa_pow > expf-24.0; mantissa_pow -= 1.0 ) {
@@ -261,10 +276,11 @@ float4 EffectLinear(float2 uv)
     float4 debug_color1 = float4(1.0-rgba.rgb, rgba.a);
     float4 debug_color2 = float4(1.0, 0.0, 0.0, 1.0);
 
-    //TODO lerp() is bad for mixing with alpha as used for now
     float2 text_coords = text_coords_from_uv(uv, float2(0.5,0.0), vpixel/upixel, font_size, float2(0.0,1.0) );
 
-    if ( inside_box(text_coords, float2(-12.0, 0.0), float2(12.25, 8.166) ) ) {
+    //TODO explain .25 and .166 or use the right constants
+    if ( inside_box(text_coords, float2(-12.0, 0.0), float2(13.25, 10.166) ) ) {
+        //TODO lerp() is bad for mixing with alpha as used for now
         rgba = lerp(rgba, debug_color0, print_text_grid(text_coords));
     }
 
@@ -274,39 +290,49 @@ float4 EffectLinear(float2 uv)
         rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
     }
 
-    if ( inside_box(text_coords, float2(-8.0, 1.0), float2(11.0, 6.0) ) ) {
-        // decode_float() in:
-        float float_to_decode = debug_value + time;
-        int wanted_digit = int(round(text_coords.x-0.5));
-        // wanted_digit: floor() will make a double wanted_digit==0 for text_coords in [-1.0;1.0], round() will not
-        // decode_float() out:
-        int sign, exp, mant, glyph_index;
-        float expf;
-        int2 fixed_point;
-        // decode_float() call:
+    // decode_float() in:
+    float float_to_decode = debug_value + time;
+    int wanted_digit = int(round(text_coords.x-0.5));
+    // wanted_digit: floor() will make a double wanted_digit==0 for text_coords in [-1.0;1.0], round() will not
+    // decode_float() out:
+    int sign, exp, mant, glyph_index;
+    float expf;
+    int2 fixed_point;
+    // decode_float() call only when needed :
+    if ( inside_box(text_coords, float2(-12.0, 1.0), float2(13.0, 6.0) ) ) {
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
         // displaying parts of the result
-        if ( inside_box(text_coords, float2(-8.0, 3.0), float2(11.0, 4.0) ) ) {
+        if ( inside_box(text_coords, float2(-8.0, 1.0), float2(12.0, 2.0) ) ) {
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
-        if ( inside_box(text_coords, float2(1.0, 1.0), float2(9.0, 2.0) ) ) {
+        if ( inside_box(text_coords, float2(1.0, 2.0), float2(9.0, 3.0) ) ) {
             glyph_index = decode_int_decimal(mant, wanted_digit);
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
-        if ( inside_box(text_coords, float2(1.0, 2.0), float2(5.0, 3.0) ) ) {
+        if ( inside_box(text_coords, float2(-12.0, 3.0), float2(13.0, 4.0) ) ) {
+            glyph_index = decode_int_binary_fixed(mant, wanted_digit+13, 23);
+            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+        }
+        if ( inside_box(text_coords, float2(1.0, 4.0), float2(9.0, 5.0) ) ) {
+            glyph_index = decode_int_hexadecimal_fixed(mant, wanted_digit, 6);
+            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+        }
+        if ( inside_box(text_coords, float2(1.0, 5.0), float2(5.0, 6.0) ) ) {
             glyph_index = decode_int_decimal(int(expf), wanted_digit);
             rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
         }
-        if ( inside_box(text_coords, float2(-8.0, 4.0), float2(11.0, 5.0) ) ) {
-            float_to_decode = -1.0/0.0; // Should be -inf
-            decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
-        }
-        if ( inside_box(text_coords, float2(-8.0, 5.0), float2(11.0, 6.0) ) ) {
-            float_to_decode = sqrt(-1.0); // Maybe +nan
-            decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
-        }
+    }
+
+    // Decoding for special float values works too
+    if ( inside_box(text_coords, float2(-8.0, 7.0), float2(11.0, 8.0) ) ) {
+        float_to_decode = -1.0/0.0; // Should be -inf
+        decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+        rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+    }
+    if ( inside_box(text_coords, float2(-8.0, 8.0), float2(11.0, 9.0) ) ) {
+        float_to_decode = sqrt(-1.0); // Maybe +nan
+        decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+        rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
     }
 
     return rgba;
