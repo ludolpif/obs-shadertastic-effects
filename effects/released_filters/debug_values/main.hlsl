@@ -92,7 +92,7 @@ float print_text_grid(in float2 text_coords) {
     return 0.0;
 }
 
-float print_glyph(float2 text_coords, int glyph_index) {
+bool print_glyph(float2 text_coords, int glyph_index) {
 #ifdef _OPENGL
     const float font[24] = float[24](PRINT_VALUE_FONT_GLYPHS);
 #else
@@ -101,7 +101,7 @@ float print_glyph(float2 text_coords, int glyph_index) {
     float w = float(PRINT_VALUE_FONT_GLYPH_WIDTH);
     float h = float(PRINT_VALUE_FONT_GLYPH_HEIGHT);
     int i = (glyph_index >= 0 && glyph_index < 24)?glyph_index:23;
-    return floor(fmod(font[i] / pow(2.0, floor( frac(text_coords.x)*w ) + floor( frac(text_coords.y)*h )*w), 2.0));
+    return fmod(font[i] / pow(2.0, floor( frac(text_coords.x)*w ) + floor( frac(text_coords.y)*h )*w), 2.0) >= 1.0;
 }
 
 int print_float_special_values(in int sign, in int3 glyphs, in int wanted_digit) {
@@ -122,11 +122,11 @@ int decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in int t
 #endif
     int glyph_index = 0; // for ' '
     if ( total_digits < 2 ) total_digits=1;
-    if ( wanted_digit == total_digits+1 ) {
+    if ( wanted_digit == total_digits ) {
         glyph_index = int_to_decode<0?22:1; // for '-' or '+'
-    } else if ( wanted_digit > 0 && wanted_digit <= total_digits) {
-        int pow10_next = pow10_table[wanted_digit];
-        int pow10_curr = pow10_table[wanted_digit-1];
+    } else if ( wanted_digit >= 0 && wanted_digit < total_digits) {
+        int pow10_next = pow10_table[wanted_digit+1];
+        int pow10_curr = pow10_table[wanted_digit];
         glyph_index = 3 + ( abs(int_to_decode) % pow10_next ) / pow10_curr;
     }
     return glyph_index;
@@ -143,24 +143,24 @@ int decode_int_decimal(in int int_to_decode, in int wanted_digit) {
 int decode_int_hexadecimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
     int glyph_index = 0; // for ' '
     if ( total_digits < 2 ) total_digits=1;
-    if ( wanted_digit == total_digits+2 ) {
+    if ( wanted_digit == total_digits+1 ) {
         glyph_index = 3; // for '0'
-    } else if ( wanted_digit == total_digits+1 ) {
+    } else if ( wanted_digit == total_digits ) {
         glyph_index = 21; // for 'x'
-    } else if ( wanted_digit > 0 && wanted_digit <= total_digits) {
-        glyph_index = 3 + (int_to_decode >> ((wanted_digit-1)*4)) % 16; // for [0-9a-f]
+    } else if ( wanted_digit >= 0 && wanted_digit < total_digits) {
+        glyph_index = 3 + (int_to_decode >> (wanted_digit*4)) % 16; // for [0-9a-f]
     }
     return glyph_index;
 }
 int decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
     int glyph_index = 0; // for ' '
     if ( total_digits < 2 ) total_digits=1;
-    if ( wanted_digit == total_digits+2 ) {
+    if ( wanted_digit == total_digits+1 ) {
         glyph_index = 3; // for '0'
-    } else if ( wanted_digit == total_digits+1 ) {
+    } else if ( wanted_digit == total_digits ) {
         glyph_index = 14; // for 'b'
-    } else if ( wanted_digit > 0 && wanted_digit <= total_digits) {
-        glyph_index = 3 + (int_to_decode >> (wanted_digit-1)) % 2; // for '0' or '1'
+    } else if ( wanted_digit >= 0 && wanted_digit < total_digits) {
+        glyph_index = 3 + (int_to_decode >> wanted_digit) % 2; // for '0' or '1'
     }
     return glyph_index;
 }
@@ -245,7 +245,7 @@ void decode_float(in float float_to_decode, in int wanted_digit,
     } else if ( wanted_digit == 0 ) {
         glyph_index = 2; // for '.'
     } else /* ( wanted_digit < 0 ) */ {
-        glyph_index = decode_int_decimal_fixed(fixed_point[1], wanted_digit+9, 8);
+        glyph_index = decode_int_decimal_fixed(fixed_point[1], wanted_digit+8, 8);
     }
 }
 #endif /* _PRINT_VALUE_HLSL */
@@ -282,22 +282,19 @@ float4 EffectLinear(float2 uv)
     float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
 
-    float4 debug_color0 = float4(0.0, 0.0, 0.0, 1.0);
-    float4 debug_color1 = float4(1.0-rgba.rgb, rgba.a);
     float4 debug_color2 = float4(1.0, 0.0, 0.0, 1.0);
 
     float2 text_coords = text_coords_from_uv(uv, float2(0.5,0.0), vpixel/upixel, font_size, float2(0.0,1.0) );
 
     //TODO explain .25 and .166 or use the right constants
-    if ( inside_box(text_coords, float2(-12.0, 0.0), float2(13.25, 10.166) ) ) {
-        //TODO lerp() is bad for mixing with alpha as used for now
-        rgba = lerp(rgba, debug_color0, print_text_grid(text_coords));
+    if ( inside_box(text_coords, float2(-12.0, 0.0), float2(13.25, 9.166) ) ) {
+        rgba = lerp(rgba, float4(0.0,0.0,0.0,1.0), print_text_grid(text_coords));
     }
 
     // font test display
     if ( inside_box(text_coords, float2(-12.0, 0.0), float2(12.0, 1.0) ) ) {
         int glyph_index = int(12-text_coords.x);
-        rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+        rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
     }
 
     // decode_float() in:
@@ -308,46 +305,47 @@ float4 EffectLinear(float2 uv)
     int sign, exp, mant, glyph_index;
     float expf;
     int2 fixed_point;
-    // decode_float() call only when needed :
+    // decode_float() call only when needed
     if ( inside_box(text_coords, float2(-12.0, 1.0), float2(13.0, 6.0) ) ) {
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-        // displaying parts of the result
+        // displaying result
         if ( inside_box(text_coords, float2(-8.0, 1.0), float2(12.0, 2.0) ) ) {
-            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
         }
-        if ( inside_box(text_coords, float2(1.0, 2.0), float2(9.0, 3.0) ) ) {
+        // and inner details as an API demo
+        if ( inside_box(text_coords, float2(0.0, 2.0), float2(8.0, 3.0) ) ) {
             glyph_index = decode_int_decimal(mant, wanted_digit);
-            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
         }
         if ( inside_box(text_coords, float2(-12.0, 3.0), float2(13.0, 4.0) ) ) {
-            glyph_index = decode_int_binary_fixed(mant, wanted_digit+13, 23);
-            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+            glyph_index = decode_int_binary_fixed(mant, wanted_digit+12, 23);
+            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
         }
-        if ( inside_box(text_coords, float2(1.0, 4.0), float2(9.0, 5.0) ) ) {
+        if ( inside_box(text_coords, float2(0.0, 4.0), float2(8.0, 5.0) ) ) {
             glyph_index = decode_int_hexadecimal_fixed(mant, wanted_digit, 6);
-            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
         }
-        if ( inside_box(text_coords, float2(1.0, 5.0), float2(5.0, 6.0) ) ) {
+        if ( inside_box(text_coords, float2(0.0, 5.0), float2(4.0, 6.0) ) ) {
             glyph_index = decode_int_decimal(int(expf), wanted_digit);
-            rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
         }
     }
 
-    // Decoding for special float values works too
+    // Decoding for special float values should work too
     if ( inside_box(text_coords, float2(-8.0, 6.0), float2(11.0, 7.0) ) ) {
         float_to_decode = -1.0/0.0; // Should be -inf
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-        rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+        rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
     }
     if ( inside_box(text_coords, float2(-8.0, 7.0), float2(11.0, 8.0) ) ) {
         float_to_decode = sqrt(-1.0); // Maybe +nan
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-        rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+        rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
     }
     if ( inside_box(text_coords, float2(-8.0, 8.0), float2(11.0, 9.0) ) ) {
         float_to_decode = -0.0; // -0.0 == 0.0 when compared but it's a different binary representation
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-        rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+        rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
     }
 
     return rgba;
