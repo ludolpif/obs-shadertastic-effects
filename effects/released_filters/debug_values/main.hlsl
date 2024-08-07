@@ -44,37 +44,6 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
     See : https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
 */
 #define POW10_TABLE_VALUES 1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000
-#define POW2FP_FRACT_TABLE_VALUES 0,\
-    500000000,\
-    250000000,\
-    125000000,\
-     62500000,\
-     31250000,\
-     15625000,\
-      7812500,\
-      3906250,\
-      1953125,\
-       976562,\
-       488281,\
-       244141,\
-       122070,\
-        61035,\
-        30518,\
-        15259,\
-         7629,\
-         3815,\
-         1907,\
-          954,\
-          477,\
-          238,\
-          119,\
-           60,\
-           30,\
-           15,\
-            7,\
-            4,\
-            2,\
-            1
 #ifndef PRINT_VALUE_FONT_GLYPHS
 #define PRINT_VALUE_FONT_GLYPH_WIDTH 4
 #define PRINT_VALUE_FONT_GLYPH_HEIGHT 6
@@ -141,32 +110,6 @@ int decode_int_decimal(in int int_to_decode, in int wanted_digit) {
 
 //TODO add decode_int_hex() and decode_int_binary()
 
-int2 decode_float_fixed_point_table(float mantissa_pow) {
-    /*
-     * fixed-point as int2. The first is integer part, the second is fractionnal part.
-     *   For negative powers, we use a +9 implied decimal fraction digits.
-     *   So, to get the normal representation, divide the table value by 10^9.
-     *   
-     *   May someone has a better solution than a table for negative powers
-     *   of two multiplied by 10^9 without precision loss ?
-     */
-#ifdef _OPENGL
-    const int pow2_table_neg[31] = int[31](POW2FP_FRACT_TABLE_VALUES);
-#else
-    static int pow2_table_neg[31] = {POW2FP_FRACT_TABLE_VALUES};
-#endif
-    int i = int(mantissa_pow);
-    int2 res;
-    if ( i < 32 && i >= 0 ) {
-        res = int2(1<<i, 0);
-    } else if ( i < 0 && i > -31 ) {
-        res = int2(0, pow2_table_neg[-i]);
-    } else {
-        res = int2(0, 0);
-    }
-    return res;
-}
-
 float print_text_grid(in float2 text_coords) {
     float2 line_width = 1.0/float2(PRINT_VALUE_FONT_GLYPH_WIDTH,PRINT_VALUE_FONT_GLYPH_HEIGHT);
     if ( frac(text_coords.x) < line_width.x || frac(text_coords.y) < line_width.y ) {
@@ -197,15 +140,29 @@ int print_float_special_values(in int sign, in int3 glyphs, in int wanted_digit)
         0;
 }
 
-int float_sign(in float float_to_decode) {
+int decode_float_sign(in float float_to_decode) {
     return ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
+}
+
+/*
+ * fixed-point as int2. The first is integer part, the second is fractionnal part.
+ *   For negative powers, we use a +9 implied decimal fraction digits.
+ *   So, to get the normal representation, divide the table value by 10^9.
+ *   The last digit of fractionnal part have some cases of precision loss:
+ *     some values are x.5 and aren't rounded to x+1.
+ */
+// TODO it's possible to round using a +(1000000000 >> (fpart-1))%2 but unsure if it increase or decrease precision
+int2 decode_float_mantissa_to_fixed_point(float mantissa_pow) {
+    int fpart = int(max(0.0, -mantissa_pow));
+    int ipart = int(max(0.0, mantissa_pow));
+    return int2( 1 << ipart >> fpart, (1000000000 >> fpart)%1000000000);
 }
 
 void decode_float(in float float_to_decode, in int wanted_digit,
         out int sign, out int exp, out int mant, out float expf, out int2 fixed_point, out int glyph_index)
 {
     // Floats numbers are coded in IEEE754 in a way roughly representable as sign*2^expf*(1+mantissa_fractionnal)
-    sign = float_sign(float_to_decode);
+    sign = decode_float_sign(float_to_decode);
     // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
     if ( float_to_decode == 0.0 ) {
         expf = -126.0; exp = 0; mant = 0; fixed_point = int2(0,0);
@@ -231,7 +188,7 @@ void decode_float(in float float_to_decode, in int wanted_digit,
     // using only float values that are exactly represented in IEEE754 encoding (powers of two)
     mant = 0; // IEEE754 23bits-wide mantissa as int without the leading implicit one
     //fixed_point: limited range fixed point representation with 8 decimals for floats in [-10e9-1 ; 10e9-1]
-    fixed_point = decode_float_fixed_point_table(expi);
+    fixed_point = decode_float_mantissa_to_fixed_point(expi);
     // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
     float mantissa_implicit_one = pow(2.0, expf);
     for ( float mantissa_pow = expf-1.0; mantissa_pow > expf-24.0; mantissa_pow -= 1.0 ) {
@@ -243,7 +200,7 @@ void decode_float(in float float_to_decode, in int wanted_digit,
             mant += 1;
             // Fixed point is split into integer part and fractionnal part
             // The way the floats are encoded garantee there is not carry to handle between those two parts
-            fixed_point += decode_float_fixed_point_table(mantissa_pow);
+            fixed_point += decode_float_mantissa_to_fixed_point(mantissa_pow);
             //TODO if expf > 23, no fractionnal part will be encoded (all bits for integer part)
             //TODO if expf > 29, fixed_point should use 1.000000e+30 notation ?
         }
