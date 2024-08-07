@@ -120,8 +120,8 @@ int decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in int t
 #else
     static int pow10_table[10] = {POW10_TABLE_VALUES};
 #endif
-    if ( total_digits < 2 ) total_digits=1;
     int glyph_index = 0; // for ' '
+    if ( total_digits < 2 ) total_digits=1;
     if ( wanted_digit == total_digits+1 ) {
         glyph_index = int_to_decode<0?22:1; // for '-' or '+'
     } else if ( wanted_digit > 0 && wanted_digit <= total_digits) {
@@ -141,11 +141,20 @@ int decode_int_decimal(in int int_to_decode, in int wanted_digit) {
 //TODO add decode_int_hex() and decode_int_binary()
 // To ease a rudimentary printf("%x",x) this function return the character index to display at wanted_digit position
 int decode_int_hexadecimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
-    return 21; // for 'x'
+    int glyph_index = 0; // for ' '
+    if ( total_digits < 2 ) total_digits=1;
+    if ( wanted_digit == total_digits+2 ) {
+        glyph_index = 3; // for '0'
+    } else if ( wanted_digit == total_digits+1 ) {
+        glyph_index = 21; // for 'x'
+    } else if ( wanted_digit > 0 && wanted_digit <= total_digits) {
+        glyph_index = 3 + (int_to_decode >> ((wanted_digit-1)*4)) % 16; // for [0-9a-f]
+    }
+    return glyph_index;
 }
 int decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
-    if ( total_digits < 2 ) total_digits=1;
     int glyph_index = 0; // for ' '
+    if ( total_digits < 2 ) total_digits=1;
     if ( wanted_digit == total_digits+2 ) {
         glyph_index = 3; // for '0'
     } else if ( wanted_digit == total_digits+1 ) {
@@ -157,17 +166,18 @@ int decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in int to
 }
 
 int decode_float_sign(in float float_to_decode) {
-    return ( float_to_decode < 0.0 || float_to_decode == -0.0)?-1:1; // note: -0.0 is not < +0.0
+    return
+        float_to_decode < 0.0?-1:
+        float_to_decode > 0.0?1:
+        (1.0 / float_to_decode < 1.0)?-1:
+        1; // note: -0.0 is not < +0.0 if using comparison operators
 }
 
 /*
  * fixed-point as int2. The first is integer part, the second is fractionnal part.
  *   For negative powers, we use a +9 implied decimal fraction digits.
  *   So, to get the normal representation, divide the table value by 10^9.
- *   The last digit of fractionnal part have some cases of precision loss:
- *     some values are x.5 and aren't rounded to x+1.
  */
-// TODO it's possible to round using a +(1000000000 >> (fpart-1))%2 but unsure if it increase or decrease precision
 int2 decode_float_mantissa_to_fixed_point(float mantissa_pow) {
     int fpart = int(max(0.0, -mantissa_pow));
     int ipart = int(max(0.0, mantissa_pow));
@@ -324,13 +334,18 @@ float4 EffectLinear(float2 uv)
     }
 
     // Decoding for special float values works too
-    if ( inside_box(text_coords, float2(-8.0, 7.0), float2(11.0, 8.0) ) ) {
+    if ( inside_box(text_coords, float2(-8.0, 6.0), float2(11.0, 7.0) ) ) {
         float_to_decode = -1.0/0.0; // Should be -inf
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
         rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
     }
-    if ( inside_box(text_coords, float2(-8.0, 8.0), float2(11.0, 9.0) ) ) {
+    if ( inside_box(text_coords, float2(-8.0, 7.0), float2(11.0, 8.0) ) ) {
         float_to_decode = sqrt(-1.0); // Maybe +nan
+        decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+        rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
+    }
+    if ( inside_box(text_coords, float2(-8.0, 8.0), float2(11.0, 9.0) ) ) {
+        float_to_decode = -0.0; // -0.0 == 0.0 when compared but it's a different binary representation
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
         rgba = lerp(rgba, debug_color2, print_glyph(text_coords, glyph_index) );
     }
