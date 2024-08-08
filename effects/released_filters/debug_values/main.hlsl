@@ -156,7 +156,6 @@ int debug_decode_int_decimal(in int int_to_decode, in int wanted_digit) {
     return debug_decode_int_decimal_fixed(int_to_decode, wanted_digit, total_digits);
 }
 
-//TODO add debug_decode_int_hex() and debug_decode_int_binary()
 // To ease a rudimentary printf("%x",x) this function return the character index to display at wanted_digit position
 int debug_decode_int_hexadecimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
     int glyph_index = 0; // for ' '
