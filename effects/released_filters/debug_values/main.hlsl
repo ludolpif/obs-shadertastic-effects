@@ -77,7 +77,7 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 
 //TODO make all javadoc style explanation of all functions and parameters
 //TODO choose a common prefix to not pollute namespace, add guards as if each func will be in a separate file in lib
-
+//TODO text position depends on font_size somehow
 float2 text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio, in float uv_line_height, in float2 char_offset) {
     float font_ratio = float(PRINT_VALUE_FONT_GLYPH_HEIGHT)/float(PRINT_VALUE_FONT_GLYPH_WIDTH);
     return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - char_offset*float2(-1.0,1.0);
@@ -241,7 +241,7 @@ void decode_float(in float float_to_decode, in int wanted_digit,
     if ( wanted_digit < -8 || wanted_digit > 11 ) {
         glyph_index = 0; // for ' '
     } else if ( wanted_digit > 0 ) {
-        glyph_index = decode_int_decimal(sign*fixed_point[0], wanted_digit);
+        glyph_index = decode_int_decimal(sign*fixed_point[0], wanted_digit-1);
     } else if ( wanted_digit == 0 ) {
         glyph_index = 2; // for '.'
     } else /* ( wanted_digit < 0 ) */ {
@@ -326,7 +326,7 @@ float4 EffectLinear(float2 uv)
             rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
         }
         if ( inside_box(text_coords, float2(0.0, 5.0), float2(4.0, 6.0) ) ) {
-            glyph_index = decode_int_decimal(int(expf), wanted_digit);
+            glyph_index = decode_int_decimal(exp, wanted_digit);
             rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
         }
     }
