@@ -126,7 +126,7 @@ bool print_glyph(float2 text_coords, int glyph_index) {
 
 int print_float_special_values(in int sign, in int3 glyphs, in int wanted_digit) {
     return
-        wanted_digit==2?(sign==-1?22:1): // for '-' or '+'
+        wanted_digit==2?(sign==1?22:1): // for '-' or '+'
         wanted_digit==1?glyphs[0]:
         wanted_digit==0?glyphs[1]:
         wanted_digit==-1?glyphs[2]:
@@ -187,10 +187,10 @@ int decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in int to
 
 int decode_float_sign(in float float_to_decode) {
     return
-        float_to_decode < 0.0?-1:
-        float_to_decode > 0.0?1:
-        (1.0 / float_to_decode < 1.0)?-1:
-        1; // note: -0.0 is not < +0.0 if using comparison operators
+        float_to_decode < 0.0?1:
+        float_to_decode > 0.0?0:
+        (1.0 / float_to_decode < 1.0)?1:
+        0; // note: -0.0 is not < +0.0 if using comparison operators
 }
 
 /*
@@ -205,10 +205,13 @@ int2 decode_float_mantissa_to_fixed_point(float mantissa_pow) {
 }
 
 void decode_float(in float float_to_decode, in int wanted_digit,
-        out int sign, out int exp, out int mant, out float expf, out int2 fixed_point, out int glyph_index)
+        out int sign, out int exp, out int mant, out int signi,
+        out float expf, out int2 fixed_point, out int glyph_index)
 {
-    // Floats numbers are coded in IEEE754 in a way roughly representable as sign*2^expf*(1+mantissa_fractionnal)
+    // Floats numbers are coded in IEEE754 in a way roughly representable as signi*2^expf*(1+mantissa_fractionnal)
     sign = decode_float_sign(float_to_decode);
+    signi = sign==1?-1:1;
+
     // Before exponent extraction, eliminate special cases on which log2(x) will not be useful
     if ( float_to_decode == 0.0 ) {
         expf = -126.0; exp = 0; mant = 0; fixed_point = int2(0,0);
@@ -248,6 +251,9 @@ void decode_float(in float float_to_decode, in int wanted_digit,
             fixed_point += decode_float_mantissa_to_fixed_point(mantissa_pow);
             //TODO if expf > 23, no fractionnal part will be encoded (all bits for integer part)
             //TODO if expf > 29, fixed_point should use 1.000000e+30 notation ?
+            //(note that last float without e notation should be 1000000000, then 1.00000006e9)
+            //biggest is -/+3.4028235e38, tinniest is -/+1e-45
+            //FIXME bug spotted 0.00000002 is not correctly decoded (32abcc77) : display 1.889...
         }
     }
     //TODO may the user want to round are arbitraty number of digit, allow it
@@ -257,11 +263,14 @@ void decode_float(in float float_to_decode, in int wanted_digit,
     if ( to_be_rounded % 10 >= 5 ) to_be_rounded += 10;
     fixed_point[1] = to_be_rounded / 10;
 
+    //TODO make number of digits on integer and fractionnal part configurable by the user (max 9 and 8)
     // To ease a rudimentary printf("%f",x) this function output glyph_index, the character index to display at wanted_digit position
-    if ( wanted_digit < -8 || wanted_digit > 11 ) {
+    if ( wanted_digit < -8 || wanted_digit > 10 ) {
         glyph_index = 0; // for ' '
+    } else if ( wanted_digit == 10 ) {
+        glyph_index = (sign==1?22:1); // for '-' or '+'
     } else if ( wanted_digit > 0 ) {
-        glyph_index = decode_int_decimal(sign*fixed_point[0], wanted_digit-1);
+        glyph_index = decode_int_decimal_fixed(fixed_point[0], wanted_digit-1, 9);
     } else if ( wanted_digit == 0 ) {
         glyph_index = 2; // for '.'
     } else /* ( wanted_digit < 0 ) */ {
@@ -311,9 +320,11 @@ float4 EffectLinear(float2 uv)
         rgba = print_text_grid(rgba, text_coords, text_offset, -12, 0, 13, 9);
     }
 
-    if ( should_print_font_test && inside_box(text_coords, float2(-11, 0), float2(13, 1) ) ) {
-        int glyph_index = int(13-text_coords.x);
-        rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
+    if ( should_print_font_test ) {
+            if ( inside_box(text_coords, float2(-11, 0), float2(13, 1) ) ) {
+            int glyph_index = int(13-text_coords.x);
+            rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
+        }
     }
 
     // decode_float() in:
@@ -322,19 +333,19 @@ float4 EffectLinear(float2 uv)
     // wanted_digit: floor() will make a double wanted_digit==0 for text_coords in [-1.0;1.0], round() will not
     // TODO make wanted_digit a out param of text_coords_from_uv ?
     // decode_float() out:
-    int sign, exp, mant, glyph_index;
+    int sign, exp, mant, signi, glyph_index;
     float expf;
     int2 fixed_point;
     // decode_float() call only when needed
     if ( inside_box(text_coords, float2(-12, 1), float2(13, 6) ) ) {
-        decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+        decode_float(float_to_decode, wanted_digit, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         // displaying result
         if ( inside_box(text_coords, float2(-8, 1), float2(12, 2) ) ) {
             rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
         // and inner details as an API demo
-        if ( inside_box(text_coords, float2(0, 2), float2(8, 3) ) ) {
-            glyph_index = decode_int_decimal(mant, wanted_digit);
+        if ( inside_box(text_coords, float2(0, 2), float2(10, 3) ) ) {
+            glyph_index = decode_int_hexadecimal_fixed(sign<<31 | (exp&0xff)<<23 | mant, wanted_digit, 8);
             rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
         if ( inside_box(text_coords, float2(-12, 3), float2(13, 4) ) ) {
@@ -342,7 +353,7 @@ float4 EffectLinear(float2 uv)
             rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
         if ( inside_box(text_coords, float2(0, 4), float2(8, 5) ) ) {
-            glyph_index = decode_int_hexadecimal_fixed(mant, wanted_digit, 6);
+            glyph_index = decode_int_decimal(mant, wanted_digit);
             rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
         if ( inside_box(text_coords, float2(0, 5), float2(4, 6) ) ) {
@@ -354,17 +365,17 @@ float4 EffectLinear(float2 uv)
     // Decoding for special float values should work too
     if ( inside_box(text_coords, float2(-8.0, 6.0), float2(11.0, 7.0) ) ) {
         float_to_decode = -1.0/0.0; // Should be -inf
-        decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+        decode_float(float_to_decode, wanted_digit, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
     if ( inside_box(text_coords, float2(-8.0, 7.0), float2(11.0, 8.0) ) ) {
         float_to_decode = sqrt(-1.0); // Maybe +nan
-        decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+        decode_float(float_to_decode, wanted_digit, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
     if ( inside_box(text_coords, float2(-8.0, 8.0), float2(11.0, 9.0) ) ) {
         float_to_decode = -0.0; // -0.0 == 0.0 when compared but it's a different binary representation
-        decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
+        decode_float(float_to_decode, wanted_digit, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
 
