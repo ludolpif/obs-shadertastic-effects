@@ -10,6 +10,8 @@ uniform int current_step;      // index of current step (for multistep effects)
 */
 
 // Specific parameters of the shader. They must be defined in the meta.json file next to this one.
+uniform bool should_print_grid;
+uniform bool should_print_font_test;
 uniform float debug_value;
 uniform float font_size;
 uniform int coord_mode;
@@ -77,19 +79,37 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 
 //TODO make all javadoc style explanation of all functions and parameters
 //TODO choose a common prefix to not pollute namespace, add guards as if each func will be in a separate file in lib
-//TODO text position depends on font_size somehow
-float2 text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio, in float uv_line_height, in float2 char_offset) {
+float2 text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio, in float uv_line_height, in float2 text_offset) {
     float font_ratio = float(PRINT_VALUE_FONT_GLYPH_HEIGHT)/float(PRINT_VALUE_FONT_GLYPH_WIDTH);
-    return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - char_offset*float2(-1.0,1.0);
+    return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - text_offset;
 }
 
-float print_text_grid(in float2 text_coords) {
+float4 print_text_grid(in float4 rgba, in float2 text_coords, in float2 text_offset,
+        in int cols_neg, in int lines_neg, in int cols_pos, in int lines_pos) {
+    // Make lines width thick like 1 pixel in font
     float2 line_width = 1.0/float2(PRINT_VALUE_FONT_GLYPH_WIDTH,PRINT_VALUE_FONT_GLYPH_HEIGHT);
-    if ( frac(text_coords.x) < line_width.x || frac(text_coords.y) < line_width.y ) {
-        return 0.3;
+
+    // Don't draw anything if we are computing a pixel outside of the grid rectangle
+    float2 left_top = float2(cols_neg, lines_neg);
+    float2 right_bottom = float2(cols_pos, lines_pos) + line_width;
+    if ( !inside_box(text_coords, left_top, right_bottom) ) {
+        return rgba;
     }
-    if ( inside_box(text_coords, float2(0.0, 0.0), float2(1.0, 1.0) ) ) return 0.8;
-    return 0.0;
+
+    // Highlight the uv-spaced anchor of the grid
+    if ( inside_box(text_coords + text_offset, float2(0.0, 0.0), line_width) ) {
+            return float4(0.0, 0.0, 1.0, 1.0);
+    }
+    // Print the grid
+    if ( frac(text_coords.x) < line_width.x || frac(text_coords.y) < line_width.y ) {
+        return float4(0.2, 0.2, 0.2, 1.0);
+    }
+    // Make the character at origin with a dark background
+    if ( inside_box(text_coords, float2(0.0, 0.0), float2(1.0, 1.0) ) ) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+    // Make a gray background for the whole grid
+    return float4(0.3, 0.3, 0.3, 1.0);
 }
 
 bool print_glyph(float2 text_coords, int glyph_index) {
@@ -282,52 +302,52 @@ float4 EffectLinear(float2 uv)
     float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
 
-    float4 debug_color2 = float4(1.0, 0.0, 0.0, 1.0);
+    float4 text_color = float4(0.9, 0.2, 0.2, 1.0);
 
-    float2 text_coords = text_coords_from_uv(uv, float2(0.5,0.0), vpixel/upixel, font_size, float2(0.0,1.0) );
+    float2 text_offset = float2(0,-1);
+    float2 text_coords = text_coords_from_uv(uv, float2(0.5,0.15), vpixel/upixel, font_size, text_offset );
 
-    //TODO explain .25 and .166 or use the right constants
-    if ( inside_box(text_coords, float2(-12.0, 0.0), float2(13.25, 9.166) ) ) {
-        rgba = lerp(rgba, float4(0.0,0.0,0.0,1.0), print_text_grid(text_coords));
+    if ( should_print_grid ) {
+        rgba = print_text_grid(rgba, text_coords, text_offset, -12, 0, 13, 9);
     }
 
-    // font test display
-    if ( inside_box(text_coords, float2(-12.0, 0.0), float2(12.0, 1.0) ) ) {
-        int glyph_index = int(12-text_coords.x);
-        rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+    if ( should_print_font_test && inside_box(text_coords, float2(-11, 0), float2(13, 1) ) ) {
+        int glyph_index = int(13-text_coords.x);
+        rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
 
     // decode_float() in:
     float float_to_decode = debug_value + time;
     int wanted_digit = int(round(text_coords.x-0.5));
     // wanted_digit: floor() will make a double wanted_digit==0 for text_coords in [-1.0;1.0], round() will not
+    // TODO make wanted_digit a out param of text_coords_from_uv ?
     // decode_float() out:
     int sign, exp, mant, glyph_index;
     float expf;
     int2 fixed_point;
     // decode_float() call only when needed
-    if ( inside_box(text_coords, float2(-12.0, 1.0), float2(13.0, 6.0) ) ) {
+    if ( inside_box(text_coords, float2(-12, 1), float2(13, 6) ) ) {
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
         // displaying result
-        if ( inside_box(text_coords, float2(-8.0, 1.0), float2(12.0, 2.0) ) ) {
-            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+        if ( inside_box(text_coords, float2(-8, 1), float2(12, 2) ) ) {
+            rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
         // and inner details as an API demo
-        if ( inside_box(text_coords, float2(0.0, 2.0), float2(8.0, 3.0) ) ) {
+        if ( inside_box(text_coords, float2(0, 2), float2(8, 3) ) ) {
             glyph_index = decode_int_decimal(mant, wanted_digit);
-            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+            rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
-        if ( inside_box(text_coords, float2(-12.0, 3.0), float2(13.0, 4.0) ) ) {
+        if ( inside_box(text_coords, float2(-12, 3), float2(13, 4) ) ) {
             glyph_index = decode_int_binary_fixed(mant, wanted_digit+12, 23);
-            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+            rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
-        if ( inside_box(text_coords, float2(0.0, 4.0), float2(8.0, 5.0) ) ) {
+        if ( inside_box(text_coords, float2(0, 4), float2(8, 5) ) ) {
             glyph_index = decode_int_hexadecimal_fixed(mant, wanted_digit, 6);
-            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+            rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
-        if ( inside_box(text_coords, float2(0.0, 5.0), float2(4.0, 6.0) ) ) {
+        if ( inside_box(text_coords, float2(0, 5), float2(4, 6) ) ) {
             glyph_index = decode_int_decimal(exp, wanted_digit);
-            rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+            rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
     }
 
@@ -335,17 +355,17 @@ float4 EffectLinear(float2 uv)
     if ( inside_box(text_coords, float2(-8.0, 6.0), float2(11.0, 7.0) ) ) {
         float_to_decode = -1.0/0.0; // Should be -inf
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-        rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+        rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
     if ( inside_box(text_coords, float2(-8.0, 7.0), float2(11.0, 8.0) ) ) {
         float_to_decode = sqrt(-1.0); // Maybe +nan
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-        rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+        rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
     if ( inside_box(text_coords, float2(-8.0, 8.0), float2(11.0, 9.0) ) ) {
         float_to_decode = -0.0; // -0.0 == 0.0 when compared but it's a different binary representation
         decode_float(float_to_decode, wanted_digit, sign, exp, mant, expf, fixed_point, glyph_index);
-        rgba = print_glyph(text_coords, glyph_index)?debug_color2:rgba;
+        rgba = print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
 
     return rgba;

@@ -4,6 +4,16 @@
   "input_time": true,
   "parameters": [
     {
+      "name": "should_print_grid",
+      "label": "Display the text grid",
+      "type": "bool"
+    },
+    {
+      "name": "should_print_font_test",
+      "label": "Display the font test (all glyphs)",
+      "type": "bool"
+    },
+    {
       "name": "debug_value",
       "label": "Debug value",
       "type": "float",
