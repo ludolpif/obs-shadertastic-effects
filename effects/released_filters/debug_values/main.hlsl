@@ -216,7 +216,7 @@ int debug_format_float_special_values(in int sign, in int3 glyphs, in int wanted
         0;
 }
 
-void debug_decode_float(in float float_to_decode, in int wanted_digit,
+void debug_decode_float(in float float_to_decode, in int wanted_digit, in int integer_digits, in int fractionnal_digits,
         out int sign, out int exp, out int mant, out int signi,
         out float expf, out int2 fixed_point, out int glyph_index)
 {
@@ -334,29 +334,30 @@ float4 EffectLinear(float2 uv)
 
     if ( should_print_font_test ) {
             if ( inside_box(text_coords, float2(-11, 0), float2(13, 1) ) ) {
-            int glyph_index = int(13-text_coords.x);
-            rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
+            int wanted_digit_font_test = debug_get_wanted_digit_from_text_coords(text_coords);
+            int glyph_index_font_test = 12 - wanted_digit_font_test;
+            rgba = debug_print_glyph(text_coords, glyph_index_font_test)?text_color:rgba;
         }
     }
 
     // debug_decode_float() in:
     float float_to_decode = debug_value + time;
     int wanted_digit = debug_get_wanted_digit_from_text_coords(text_coords);
-    // TODO make wanted_digit a out param of debug_get_text_coords_from_uv ?
     // debug_decode_float() out:
     int sign, exp, mant, signi, glyph_index;
     float expf;
     int2 fixed_point;
-    // debug_decode_float() call only when needed
+    // debug_decode_float() call only when needed (may harm GPU on very big image)
     if ( inside_box(text_coords, float2(-12, 1), float2(13, 6) ) ) {
-        debug_decode_float(float_to_decode, wanted_digit, sign, exp, mant, signi, expf, fixed_point, glyph_index);
+        debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         // displaying result
-        if ( inside_box(text_coords, float2(-8, 1), float2(12, 2) ) ) {
+        if ( inside_box(text_coords, float2(-8, 1), float2(11, 2) ) ) {
             rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
         // and inner details as an API demo
         if ( inside_box(text_coords, float2(0, 2), float2(10, 3) ) ) {
-            glyph_index = debug_decode_int_hexadecimal_fixed(sign<<31 | (exp&0xff)<<23 | mant, wanted_digit, 8);
+            int decoded_float = sign<<31 | (exp&0xff)<<23 | mant;
+            glyph_index = debug_decode_int_hexadecimal_fixed(decoded_float, wanted_digit, 8);
             rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
         if ( inside_box(text_coords, float2(-12, 3), float2(13, 4) ) ) {
@@ -368,26 +369,23 @@ float4 EffectLinear(float2 uv)
             rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
         if ( inside_box(text_coords, float2(0, 5), float2(4, 6) ) ) {
-            glyph_index = debug_decode_int_decimal(exp, wanted_digit);
+            glyph_index = debug_decode_int_decimal(int(expf), wanted_digit);
             rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
         }
     }
 
     // Decoding for special float values should work too
-    if ( inside_box(text_coords, float2(-8.0, 6.0), float2(11.0, 7.0) ) ) {
-        float_to_decode = -1.0/0.0; // Should be -inf
-        debug_decode_float(float_to_decode, wanted_digit, sign, exp, mant, signi, expf, fixed_point, glyph_index);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-    if ( inside_box(text_coords, float2(-8.0, 7.0), float2(11.0, 8.0) ) ) {
-        float_to_decode = sqrt(-1.0); // Maybe +nan
-        debug_decode_float(float_to_decode, wanted_digit, sign, exp, mant, signi, expf, fixed_point, glyph_index);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-    if ( inside_box(text_coords, float2(-8.0, 8.0), float2(11.0, 9.0) ) ) {
-        float_to_decode = -0.0; // -0.0 == 0.0 when compared but it's a different binary representation
-        debug_decode_float(float_to_decode, wanted_digit, sign, exp, mant, signi, expf, fixed_point, glyph_index);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
+    float3 float_special_values_demo = float3(
+            -1.0/0.0, // Should be -inf
+            sqrt(-1.0), // Maybe +nan
+            -0.0 // -0.0 == 0.0 when compared but it's a different binary representation
+    );
+    for (int i=0; i<3; i++) {
+        if ( inside_box(text_coords, float2(-8, 6+i), float2(11, 7+i) ) ) {
+            float_to_decode = float_special_values_demo[i];
+            debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
+            rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
+        }
     }
 
     return rgba;
