@@ -88,9 +88,10 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
  *  (1.0: one line of text occupies the full texture height. 0.1: ten lines of text avaiable in the texture height)
  * @param text_offset offset in text_coords space to ease text positionning in a glyph size unit
  */
-float2 debug_get_text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio, in float uv_line_height, in float2 text_offset) {
+float2 debug_get_text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio,
+        in float uv_line_height, in int2 text_offset) {
     float font_ratio = float(DEBUG_FONT_GLYPH_HEIGHT)/float(DEBUG_FONT_GLYPH_WIDTH);
-    return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - text_offset;
+    return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - float2(text_offset);
 }
 
 /**
@@ -104,10 +105,16 @@ int debug_get_wanted_digit_from_text_coords(in float2 text_coords) {
     return int(round(text_coords.x-0.5));
 }
 
-// TODO javadoc and harmonise it's api with the other func that need 4 coords
-bool debug_inside_text_box(in float2 text_coords, in float2 text_offset, in int text_len) {
-    return inside_box(text_coords, text_offset, float2(text_offset.x + float(text_len), text_offset.y + 1.0));
+/**
+ * returns true if text_coords is the rectangle defined by text_offset and text_len, considering only one line of text
+ * @param text_coords current point in text_coords space
+ * @param text_offset offset in text_coords space to ease text positionning in a glyph size unit
+ * @param text_len maximum number of glyphs to be expected on the text field
+ */
+bool debug_inside_text_box(in float2 text_coords, in int2 text_offset, in int text_len) {
+    return inside_box(text_coords, float2(text_offset), float2(text_offset.x + text_len, text_offset.y + 1));
 }
+
 /**
  * returns an rgba pixel value to display the pixel at text_coords of a text grid.
  *  Meant to help choosing parameters for debug_get_text_coords_from_uv().
@@ -120,7 +127,7 @@ bool debug_inside_text_box(in float2 text_coords, in float2 text_offset, in int 
  * @param cols_pos number of columns on the left of (0,0) character
  * @param lines_pos number of lines below the (0,0) character
  */
-float4 debug_print_text_grid(in float4 rgba, in float2 text_coords, in float2 text_offset,
+float4 debug_print_text_grid(in float4 rgba, in float2 text_coords, in int2 text_offset,
         in int cols_neg, in int lines_neg, in int cols_pos, in int lines_pos) {
     // Make lines width thick like 1 pixel in font
     float2 line_width = 1.0/float2(DEBUG_FONT_GLYPH_WIDTH,DEBUG_FONT_GLYPH_HEIGHT);
@@ -133,8 +140,8 @@ float4 debug_print_text_grid(in float4 rgba, in float2 text_coords, in float2 te
     }
 
     // Highlight the uv-spaced anchor of the grid
-    if ( inside_box(text_coords + text_offset, float2(0.0, 0.0), line_width) ) {
-            return float4(0.0, 0.0, 1.0, 1.0);
+    if ( inside_box(text_coords + float2(text_offset), float2(0.0, 0.0), line_width) ) {
+        return float4(0.0, 0.0, 1.0, 1.0);
     }
     // Print the grid
     if ( frac(text_coords.x) < line_width.x || frac(text_coords.y) < line_width.y ) {
@@ -182,7 +189,7 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
     static int pow10_table[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000};
 #endif
     int glyph_index = 0; // for ' '
-    if ( total_digits < 2 ) total_digits=1;
+    if ( total_digits < 1 ) total_digits = 1;
     if ( wanted_digit == total_digits ) {
         glyph_index = int_to_decode<0?22:1; // for '-' or '+'
     } else if ( wanted_digit >= 0 && wanted_digit < total_digits) {
@@ -435,7 +442,7 @@ float4 EffectLinear(float2 uv)
 
     float4 text_color = float4(0.9, 0.2, 0.2, 1.0);
 
-    float2 text_offset = float2(0,-1);
+    int2 text_offset = int2(0,-1);
     float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.5,0.15), vpixel/upixel, font_size, text_offset );
 
     if ( should_print_grid ) {
@@ -443,7 +450,7 @@ float4 EffectLinear(float2 uv)
     }
 
     if ( should_print_font_test ) {
-        text_offset = float2(-11, 0);
+        text_offset = int2(-11, 0);
         if ( debug_inside_text_box(text_coords, text_offset, 24) ) {
             int wanted_digit_font_test = debug_get_wanted_digit_from_text_coords(text_coords);
             int glyph_index_font_test = 12 - wanted_digit_font_test;
@@ -466,28 +473,28 @@ float4 EffectLinear(float2 uv)
      *  For this demo, multiple lines of text will depend on this debug_decode_float() so we call it unconditionnaly
      */
     // displaying the result
-    text_offset = float2(-8, 1);
+    text_offset = int2(-8, 1);
     if ( debug_inside_text_box(text_coords, text_offset, 19) ) {
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
     // and inner details as an API demo
-    text_offset = float2(0, 2);
+    text_offset = int2(0, 2);
     if ( debug_inside_text_box(text_coords, text_offset, 10) ) {
         int decoded_float = sign<<31 | (exp&0xff)<<23 | mant;
         glyph_index = debug_decode_int_hexadecimal_fixed(decoded_float, wanted_digit, 8);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
-    text_offset = float2(-12, 3);
+    text_offset = int2(-12, 3);
     if ( debug_inside_text_box(text_coords, text_offset, 25) ) {
         glyph_index = debug_decode_int_binary_fixed(mant, wanted_digit+12, 23);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
-    text_offset = float2(0, 4);
+    text_offset = int2(0, 4);
     if ( debug_inside_text_box(text_coords, text_offset, 8) ) {
         glyph_index = debug_decode_int_decimal(mant, wanted_digit);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
-    text_offset = float2(0, 5);
+    text_offset = int2(0, 5);
     if ( debug_inside_text_box(text_coords, text_offset, 4) ) {
         glyph_index = debug_decode_int_decimal(int(expf), wanted_digit);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
@@ -500,7 +507,7 @@ float4 EffectLinear(float2 uv)
             -0.0 // -0.0 == 0.0 when compared but it's a different binary representation
     );
     for (int i=0; i<3; i++) {
-        text_offset = float2(-8, 6+i);
+        text_offset = int2(-8, 6+i);
         if ( debug_inside_text_box(text_coords, text_offset, 19) ) {
             float_to_decode = float_special_values_demo[i];
             debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
