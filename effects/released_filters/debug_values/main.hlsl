@@ -148,7 +148,7 @@ float4 debug_print_text_grid(in float4 rgba, in float2 text_coords, in int2 text
         return float4(0.2, 0.2, 0.2, 1.0);
     }
     // Make the character at origin with a dark background
-    if ( inside_box(text_coords, float2(0.0, 0.0), float2(1.0, 1.0) ) ) {
+    if ( debug_inside_text_box(text_coords, int2(0,0), 1) ) {
         return float4(0.0, 0.0, 0.0, 1.0);
     }
     // Make a gray background for the whole grid
