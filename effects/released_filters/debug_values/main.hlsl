@@ -267,8 +267,8 @@ int debug_decode_float_sign(in float float_to_decode) {
  * @param mantissa_pow the mantissa power of two (adjusted by exp) to retreive
  */
 int2 debug_decode_float_mantissa_to_fixed_point(in float mantissa_pow) {
-    int fpart = int(max(0.0, -mantissa_pow));
-    int ipart = int(max(0.0, mantissa_pow));
+    int fpart = int(clamp(-mantissa_pow, 0.0, 31.0));
+    int ipart = int(clamp( mantissa_pow, 0.0, 31.0));
     return int2( 1 << ipart >> fpart, (1000000000 >> fpart)%1000000000);
 }
 
@@ -354,7 +354,6 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
             //TODO if expf > 29, fixed_point should use 1.000000e+30 notation ?
             //(note that last float without e notation should be 1000000000, then 1.00000006e9)
             //biggest is -/+3.4028235e38, tinniest is -/+1e-45
-            //FIXME bug spotted 0.00000002 is not correctly decoded (32abcc77) : display 1.889...
         }
     }
     //TODO may the user want to round are arbitraty number of digit, allow it
