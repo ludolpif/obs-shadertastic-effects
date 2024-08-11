@@ -10,6 +10,9 @@ uniform int current_step;      // index of current step (for multistep effects)
 */
 
 // Specific parameters of the shader. They must be defined in the meta.json file next to this one.
+uniform bool should_print_grid;
+uniform bool should_print_font_test;
+uniform float debug_value;
 uniform float font_size;
 uniform int coord_mode;
 uniform float pixel_u;
@@ -17,7 +20,10 @@ uniform float pixel_v;
 uniform int pixel_x;
 uniform int pixel_y;
 
-#include "../../shadertastic-lib/debug/print-value.hlsl"
+#include "../../shadertastic-lib/debug/print_glyph.hlsl"
+#include "../../shadertastic-lib/debug/decode_int.hlsl"
+#include "../../shadertastic-lib/debug/decode_float.hlsl"
+#include "../../shadertastic-lib/debug/print_values.hlsl"
 //----------------------------------------------------------------------------------------------------------------------
 
 // These are required objects for the shader to work.

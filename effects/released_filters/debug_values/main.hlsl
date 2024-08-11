@@ -38,9 +38,9 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 }
 #endif /* _INSIDE_BOX_HLSL */
 
-/* #include "../../shadertastic-lib/debug/print.hlsl" */
-#ifndef _PRINT_HLSL
-#define _PRINT_HLSL
+/* #include "../../shadertastic-lib/debug/print_glyph.hlsl" */
+#ifndef _PRINT_GLYPH_HLSL
+#define _PRINT_GLYPH_HLSL
 /* Inspired from https://www.shadertoy.com/view/3lGBDm ; Licensed under CC BY-NC-SA 3.0
     Font extracted with : zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf
     See : https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
@@ -171,7 +171,7 @@ bool debug_print_glyph(in float2 text_coords, in int glyph_index) {
     int i = (glyph_index >= 0 && glyph_index < 24)?glyph_index:23;
     return fmod(font[i] / pow(2.0, floor( frac(text_coords.x)*w ) + floor( frac(text_coords.y)*h )*w), 2.0) >= 1.0;
 }
-#endif /* _PRINT_HLSL */
+#endif /* _PRINT_GLYPH_HLSL */
 
 /* #include "../../shadertastic-lib/debug/decode_int.hlsl" */
 #ifndef _DECODE_INT_HLSL
@@ -252,11 +252,10 @@ int debug_decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in 
 }
 #endif /* _DECODE_INT_HLSL */
 
-/* #include "../../shadertastic-lib/debug/decode_float.hlsl" */
-#ifndef _DECODE_FLOAT_HLSL
-#define _DECODE_FLOAT_HLSL
-
-/*
+/* #include "../../shadertastic-lib/debug/decode_float_internals.hlsl" */
+#ifndef _DECODE_FLOAT_INTERNALS_HLSL
+#define _DECODE_FLOAT_INTERNALS_HLSL
+/**
  * returns the "sign" bitfield as encoded in IEEE754 floats. 0b0: positive numbers, 0b1:negative numbers.
  *  Internally used by debug_decode_float(). You should not need to call this function directly.
  * @param float_to_decode float from which we want field extraction
@@ -301,7 +300,11 @@ int debug_format_float_special_values(in int sign, in int3 glyphs, in int wanted
         wanted_digit==-1?glyphs[2]:
         0;
 }
+#endif /* _DECODE_FLOAT_INTERNALS_HLSL */
 
+/* #include "../../shadertastic-lib/debug/decode_float.hlsl" */
+#ifndef _DECODE_FLOAT_HLSL
+#define _DECODE_FLOAT_HLSL
 /**
  * returns a glyph_index to use with debug_print_glyph() to make a rudimentary printf("%f",float_to_decode), one wanted_digit at a time.
  *  This function has many out paramters to get as many details as possible from float_to_decode.
@@ -412,6 +415,12 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
     }
 }
 #endif /* _DECODE_FLOAT_HLSL */
+
+/* #include "../../shadertastic-lib/debug/print_values.hlsl" */
+#ifndef _PRINT_VALUES_HLSL
+#define _PRINT_VALUES_HLSL
+// TODO provide high-level wrappers on the other functions here ? print_float() ? print_int() ? print_float4() ? print_float4x4() ?
+#endif /* _PRINT_VALUES_HLSL */
 
 // These are required objects for the shader to work.
 // You don't need to change anything here, unless you know what you are doing
