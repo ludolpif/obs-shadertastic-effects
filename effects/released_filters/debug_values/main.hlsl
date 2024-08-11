@@ -275,9 +275,9 @@ int debug_decode_float_sign(in float float_to_decode) {
  *  The first int is integer part, the second is fractionnal part.
  *  For fractionnal part, a +9 implied decimal fraction digits is used.
  *  So, to get the canonical representation, divide the fractionnal part value value by 10^9.
- *  This function will return wrong integer part if mantissa_pow > 31.0
+ *  This function will return wrong integer part if mantissa_pow > 30.0
  *    and 0 fractionnal part if mantissa_pow < -29.0.
- * @param mantissa_pow the mantissa power of two (adjusted by exp) to retreive (max 31.0).
+ * @param mantissa_pow the mantissa power of two (adjusted by exp) to retreive (max 30.0).
  */
 int2 debug_decode_float_mantissa_to_fixed_point(in float mantissa_pow) {
     int fpart = int(clamp(-mantissa_pow, 0.0, 31.0));
