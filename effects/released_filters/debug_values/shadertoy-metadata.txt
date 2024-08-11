@@ -1,0 +1,6 @@
+Title: DebugPrint ++ printf("%f %x %d")
+Tags: debug, utils, decode, printf
+Author: ludolpif
+Creation date: 2024-08-11
+Description:
+Extract sign,exponent,mantissa of IEEE754 floats, try to convert every value to human readable version, print it on screen, may help to trace computation errors while developping shader in a limited environnement. Print values not dependent on fragCoord.
