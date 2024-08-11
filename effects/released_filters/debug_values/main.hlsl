@@ -203,7 +203,7 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
 /**
  * returns a glyph_index to use with debug_print_glyph() to make a rudimentary printf("%d",int_to_decode), one wanted_digit at a time.
  *  This is a wrapper for debug_decode_int_decimal_fixed() trying to guess the right total_digits for you.
- *  for a few int_to_decode values, it may lead to print one spurious leading non-significative 0 
+ *  for a few int_to_decode values, it may lead to print one spurious leading non-significative 0
  *  because it uses approximations (log2(x)/log2(10)) to compute total_digits.
  * @param int_to_decode int value to be decoded as a decimal number
  * @param wanted_digit digit number you want to get from int_to_decode (0: units, 1: tens, 2: hundreds...)
@@ -275,7 +275,9 @@ int debug_decode_float_sign(in float float_to_decode) {
  *  The first int is integer part, the second is fractionnal part.
  *  For fractionnal part, a +9 implied decimal fraction digits is used.
  *  So, to get the canonical representation, divide the fractionnal part value value by 10^9.
- * @param mantissa_pow the mantissa power of two (adjusted by exp) to retreive
+ *  This function will return wrong integer part if mantissa_pow > 31.0
+ *    and 0 fractionnal part if mantissa_pow < -29.0.
+ * @param mantissa_pow the mantissa power of two (adjusted by exp) to retreive (max 31.0).
  */
 int2 debug_decode_float_mantissa_to_fixed_point(in float mantissa_pow) {
     int fpart = int(clamp(-mantissa_pow, 0.0, 31.0));
@@ -372,8 +374,11 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
     if ( to_be_rounded % 10 >= 5 ) to_be_rounded += 10;
     fixed_point[1] = to_be_rounded / 10;
 
-    //TODO make number of digits on integer and fractionnal part configurable by the user (max 9 and 8)
     // To ease a rudimentary printf("%f",x) this function output glyph_index, the character index to display at wanted_digit position
+    //TODO make number of digits on integer and fractionnal part configurable by the user (max 9 and 8)
+    /* Note: next if() need to be at least as restrictive as preconditions
+     * of debug_decode_float_mantissa_to_fixed_point() to not display wrong results
+     */
     if ( float_to_decode_abs >= 0.00000001 && float_to_decode_abs < 1000000000 ) {
         // print a natural form
         if ( wanted_digit < -8 || wanted_digit > 10 ) {
