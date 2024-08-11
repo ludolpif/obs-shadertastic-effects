@@ -83,18 +83,16 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         glyph_index = debug_decode_int_decimal(int(expf), wanted_digit);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
-/*
-    //TODO I am not aware of a working solution on ShaderToy to save -inf, +NaN and -0.0 in a variable
-    
+
     text_offset = int2(-2, 6);
     if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        float_to_decode = -1.0/0.0; // Should be -inf
+        float_to_decode = -1e39; // Should be -inf
         debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
     text_offset = int2(-2, 7);
     if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        float_to_decode = sqrt(-1.0); // Maybe +nan
+        float_to_decode = sqrt(-abs(expf)); // Maybe +nan if float_to_decode not between 1.0 and 1.5
         debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
@@ -104,7 +102,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
-*/
+
     // Output to screen
     fragColor = rgba;
 }

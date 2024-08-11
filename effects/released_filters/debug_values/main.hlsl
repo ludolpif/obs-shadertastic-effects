@@ -520,13 +520,13 @@ float4 EffectLinear(float2 uv)
 
     text_offset = int2(-2, 6);
     if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        float_to_decode = -1.0/0.0; // Should be -inf
+        float_to_decode = -1e39; // Should be -inf
         debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
     text_offset = int2(-2, 7);
     if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        float_to_decode = sqrt(-1.0); // Maybe +nan
+        float_to_decode = sqrt(-abs(expf)); // Maybe +nan if float_to_decode not between 1.0 and 1.5
         debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
