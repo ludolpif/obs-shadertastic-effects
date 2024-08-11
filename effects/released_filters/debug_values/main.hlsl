@@ -43,7 +43,10 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 #define _PRINT_GLYPH_HLSL
 /* Inspired from https://www.shadertoy.com/view/3lGBDm ; Licensed under CC BY-NC-SA 3.0
     Font extracted with : zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf
-    See : https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
+    See: https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
+
+    Primarily written for OBS Shadertastic plugin (shader library for live streaming with OBS Studio)
+    See: https://shadertastic.com
 */
 #ifndef DEBUG_FONT_GLYPHS
 #define DEBUG_FONT_GLYPH_WIDTH 4
@@ -210,7 +213,7 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
  */
 int debug_decode_int_decimal(in int int_to_decode, in int wanted_digit) {
     // Note: total_digits estimation is not always exact, may a leading 0 could appear
-    int total_digits = 1 + int(log2(abs(int_to_decode))/log2(10));
+    int total_digits = 1 + int(log2(abs(float(int_to_decode)))/log2(10.0));
     return debug_decode_int_decimal_fixed(int_to_decode, wanted_digit, total_digits);
 }
 
@@ -382,7 +385,7 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
     /* Note: next if() need to be at least as restrictive as preconditions
      * of debug_decode_float_mantissa_to_fixed_point() to not display wrong results
      */
-    if ( float_to_decode_abs >= 0.00000001 && float_to_decode_abs < 1000000000 ) {
+    if ( float_to_decode_abs >= 0.00000001 && float_to_decode_abs < 1000000000.0 ) {
         // print a natural form
         if ( wanted_digit < -8 || wanted_digit > 10 ) {
             glyph_index = 0; // for ' '
@@ -398,7 +401,7 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
     } else {
         // print using scientific notation like -1e12 or +1e-36 or sci_m * 10^sci_n
         // log10f seems to loose precision for tiny float_to_decode_abs values (negative log values)
-        float log10f = log2(float_to_decode_abs)/log2(10);
+        float log10f = log2(float_to_decode_abs)/log2(10.0);
         if ( wanted_digit < -3 || wanted_digit > 2 ) {
             glyph_index = 0; // for ' '
         } else if ( wanted_digit == 2 ) {
@@ -450,6 +453,7 @@ VertData VSDefault(VertData v_in)
 float4 EffectLinear(float2 uv)
 {
     float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
+    float aspect_ratio = vpixel/upixel;
 
     float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
@@ -457,7 +461,7 @@ float4 EffectLinear(float2 uv)
     float4 text_color = float4(0.9, 0.2, 0.2, 1.0);
 
     int2 text_offset = int2(0,-1);
-    float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.5,0.15), vpixel/upixel, font_size, text_offset );
+    float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.5,0.15), aspect_ratio, font_size, text_offset );
 
     if ( should_print_grid ) {
         rgba = debug_print_text_grid(rgba, text_coords, text_offset, -12, 0, 13, 9);
