@@ -1,7 +1,28 @@
 {
   "label": "Debug Values",
   "revision": 2,
+  "input_time": true,
   "parameters": [
+    {
+      "name": "should_print_grid",
+      "label": "Display the text grid",
+      "type": "bool"
+    },
+    {
+      "name": "should_print_font_test",
+      "label": "Display the font test (all glyphs)",
+      "type": "bool"
+    },
+    {
+      "name": "debug_value",
+      "label": "Debug value",
+      "type": "float",
+      "slider": true,
+      "min": -3.4028235e38,
+      "max": 3.4028235e38,
+      "step": 1e-45,
+      "default": -1e-45
+    },
     {
       "name": "font_size",
       "label": "Font size",

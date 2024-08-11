@@ -1,6 +1,6 @@
 #!/bin/bash
-x11_names_regex='period|zero|one|two|three|four|five|six|seven|eight|nine|question|[a-z]|minus'
-ascii_repr='.0123456789?abcdefghijklmnopqrstuvwxyz-'
+x11_names_regex='period|zero|one|two|three|four|five|six|seven|eight|nine|plus|question|[a-finx]|minus'
+ascii_repr='+.0123456789?abcdefinx-'
 
 zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x11_names_regex)$" \
 	| awk --non-decimal-data -v ascii_repr="$ascii_repr" \
@@ -8,32 +8,36 @@ zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x
         for(n=0;n<256;n++)ord[sprintf("%c",n)]=n;
 		char_indice=1; font_width=4; font_height=6; def=0;
 		indent="    "; indent2="        ";
-		print "// int font_width = " font_width ";"
-		print "// int font_height = " font_height ";"
-		print "float printValue_digitBin(int x) {"
-		print indent "return ("
+        print "#ifndef PRINT_VALUE_FONT_GLYPHS"
+        print "#define PRINT_VALUE_FONT_GLYPH_WIDTH " font_width
+        print "#define PRINT_VALUE_FONT_GLYPH_HEIGHT " font_height
+        print "#define PRINT_VALUE_FONT_GLYPHS \\"
+        print indent2 "/*\" \"*/ 0.0, \\"
 	}
-    /^STARTCHAR/ { character=0; ascii_char=substr(ascii_repr,char_indice,1); printf indent2 "/* " ascii_char " */ x==" ord[ascii_char] "?" }
-	/^BITMAP/ { line_number=font_height }
-	/^..$/ { if (line_number > 0 ) {
-		parsed = sprintf("%d", "0x" $1)
-		line = 0
-		for (i=0; i<8; i++) {
-			bit = and(rshift(parsed, i),1)
-			line = or(lshift(line,1), bit)
-		}
-		character = or(character, lshift(line,font_width*(line_number-1)));
-		line_number = line_number-1;
-	} }
+    /^STARTCHAR/ { 
+        character=0;
+        ascii_char=substr(ascii_repr,char_indice,1);
+		if (ascii_char != "?" ) printf indent2 "/* " ascii_char " */ "
+    }
+	/^BITMAP/ { line_number=0 }
+	/^..$/ {
+        if (line_number < font_height ) {
+            line = sprintf("%d", "0x" $1)
+            character = or(character, lshift(line,font_width*(line_number)));
+            line_number = line_number+1;
+        }
+    }
 	/^ENDCHAR/ {
-		print character ".0:";
-		if (substr(ascii_repr,char_indice,1) == "?" ){ def=character }
+		if (ascii_char == "?" ) {
+            def=character;
+        } else {
+            print character ".0, \\";
+        }
 		char_indice = char_indice+1;
 	}
 	END {
-		print indent2 "/* default: ? */ " def ".0";
-		print indent ");"
-		; print "}"
+		print indent2 "/* ? */ " def ".0";
+        print "#endif /* PRINT_VALUE_FONT_GLYPHS */"
 	}
 '
 #STARTCHAR nine

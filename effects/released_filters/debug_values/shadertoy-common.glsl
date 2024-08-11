@@ -1,28 +1,11 @@
-// Common parameters for all shaders, as reference. Do not uncomment this (but you can remove it safely).
-/*
-uniform float time;            // Time since the shader is running. Goes from 0 to 1 for transition effects; goes from 0 to infinity for filter effects
-uniform texture2d image;       // Texture of the source (filters only)
-uniform texture2d tex_interm;  // Intermediate texture where the previous step will be rendered (for multistep effects)
-uniform float upixel;          // Width of a pixel in the UV space
-uniform float vpixel;          // Height of a pixel in the UV space
-uniform float rand_seed;       // Seed for random functions
-uniform int current_step;      // index of current step (for multistep effects)
-*/
+#define _OPENGL
+#define float2 vec2
+#define float4 vec4
+#define int2 ivec2
+#define int3 ivec3
+#define frac fract
+#define fmod mod
 
-// Specific parameters of the shader. They must be defined in the meta.json file next to this one.
-uniform bool should_print_grid;
-uniform bool should_print_font_test;
-uniform float debug_value;
-uniform float font_size;
-uniform int coord_mode;
-uniform float pixel_u;
-uniform float pixel_v;
-uniform int pixel_x;
-uniform int pixel_y;
-
-/* #include "../../shadertastic-lib/geometry/inside_box.hlsl" */
-#ifndef _INSIDE_BOX_HLSL
-#define _INSIDE_BOX_HLSL
 /**
  * Returns true if v is included in the rectangle defined by left_top (inclusive) and right_bottom (exclusive)
  * Alternative definition : with left_top.x <= right_bottom.x and left_top.y <= right_bottom.y,
@@ -36,18 +19,7 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
     float2 s = step(left_top, v) - step(right_bottom, v);
     return s.x * s.y != 0.0;
 }
-#endif /* _INSIDE_BOX_HLSL */
 
-/* #include "../../shadertastic-lib/debug/print_glyph.hlsl" */
-#ifndef _PRINT_GLYPH_HLSL
-#define _PRINT_GLYPH_HLSL
-/* Inspired from https://www.shadertoy.com/view/3lGBDm ; Licensed under CC BY-NC-SA 3.0
-    Font extracted with : zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf
-    See: https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
-
-    Primarily written for OBS Shadertastic plugin (shader library for live streaming with OBS Studio)
-    See: https://shadertastic.com
-*/
 #ifndef DEBUG_FONT_GLYPHS
 #define DEBUG_FONT_GLYPH_WIDTH 4
 #define DEBUG_FONT_GLYPH_HEIGHT 6
@@ -174,11 +146,7 @@ bool debug_print_glyph(in float2 text_coords, in int glyph_index) {
     int i = (glyph_index >= 0 && glyph_index < 24)?glyph_index:23;
     return fmod(font[i] / pow(2.0, floor( frac(text_coords.x)*w ) + floor( frac(text_coords.y)*h )*w), 2.0) >= 1.0;
 }
-#endif /* _PRINT_GLYPH_HLSL */
 
-/* #include "../../shadertastic-lib/debug/decode_int.hlsl" */
-#ifndef _DECODE_INT_HLSL
-#define _DECODE_INT_HLSL
 /**
  * returns a glyph_index to use with debug_print_glyph() to make a rudimentary printf("%d",int_to_decode), one wanted_digit at a time.
  * @param int_to_decode int value to be decoded as a decimal number
@@ -253,11 +221,7 @@ int debug_decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in 
     }
     return glyph_index;
 }
-#endif /* _DECODE_INT_HLSL */
 
-/* #include "../../shadertastic-lib/debug/decode_float_internals.hlsl" */
-#ifndef _DECODE_FLOAT_INTERNALS_HLSL
-#define _DECODE_FLOAT_INTERNALS_HLSL
 /**
  * returns the "sign" bitfield as encoded in IEEE754 floats. 0b0: positive numbers, 0b1:negative numbers.
  *  Internally used by debug_decode_float(). You should not need to call this function directly.
@@ -303,11 +267,7 @@ int debug_format_float_special_values(in int sign, in int3 glyphs, in int wanted
         wanted_digit==-1?glyphs[2]:
         0;
 }
-#endif /* _DECODE_FLOAT_INTERNALS_HLSL */
 
-/* #include "../../shadertastic-lib/debug/decode_float.hlsl" */
-#ifndef _DECODE_FLOAT_HLSL
-#define _DECODE_FLOAT_HLSL
 /**
  * returns a glyph_index to use with debug_print_glyph() to make a rudimentary printf("%f",float_to_decode), one wanted_digit at a time.
  *  This function has many out paramters to get as many details as possible from float_to_decode.
@@ -415,146 +375,5 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
             int sci_n = int(log10f);
             glyph_index = debug_decode_int_decimal_fixed(sci_n, wanted_digit+3, 2);
         }
-    }
-}
-#endif /* _DECODE_FLOAT_HLSL */
-
-/* #include "../../shadertastic-lib/debug/print_values.hlsl" */
-#ifndef _PRINT_VALUES_HLSL
-#define _PRINT_VALUES_HLSL
-// TODO provide high-level wrappers on the other functions here ? print_float() ? print_int() ? print_float4() ? print_float4x4() ?
-#endif /* _PRINT_VALUES_HLSL */
-
-// These are required objects for the shader to work.
-// You don't need to change anything here, unless you know what you are doing
-sampler_state textureSampler {
-    Filter    = Linear;
-    AddressU  = Clamp;
-    AddressV  = Clamp;
-};
-
-struct VertData {
-    float2 uv  : TEXCOORD0;
-    float4 pos : POSITION;
-};
-
-struct FragData {
-    float2 uv  : TEXCOORD0;
-};
-
-VertData VSDefault(VertData v_in)
-{
-    VertData vert_out;
-    vert_out.uv  = v_in.uv;
-    vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
-    return vert_out;
-}
-
-float4 EffectLinear(float2 uv)
-{
-    float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
-    float aspect_ratio = vpixel/upixel;
-
-    float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
-    float4 rgba = image.Sample(textureSampler, uv);
-
-    float4 text_color = float4(0.9, 0.2, 0.2, 1.0);
-
-    int2 text_offset = int2(0,-1);
-    float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.5,0.15), aspect_ratio, font_size, text_offset );
-
-    if ( should_print_grid ) {
-        rgba = debug_print_text_grid(rgba, text_coords, text_offset, -12, 0, 13, 9);
-    }
-
-    if ( should_print_font_test ) {
-        text_offset = int2(-11, 0);
-        if ( debug_inside_text_box(text_coords, text_offset, 24) ) {
-            int wanted_digit_font_test = debug_get_wanted_digit_from_text_coords(text_coords);
-            int glyph_index_font_test = 12 - wanted_digit_font_test;
-            rgba = debug_print_glyph(text_coords, glyph_index_font_test)?text_color:rgba;
-        }
-    }
-
-    // debug_decode_float() in:
-    float float_to_decode = debug_value + time;
-    int wanted_digit = debug_get_wanted_digit_from_text_coords(text_coords);
-    // debug_decode_float() out:
-    int sign, exp, mant, signi, glyph_index;
-    float expf;
-    int2 fixed_point;
-    // debug_decode_float() call:
-    debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
-    /*
-     * note: you should call debug_decode_float() call only for pixels that will display it's values
-     *  because doing the decoding for the full texture may make the GPU too busy.
-     *  For this demo, multiple lines of text will depend on this debug_decode_float() so we call it unconditionnaly
-     */
-    // displaying the result
-    text_offset = int2(-8, 1);
-    if ( debug_inside_text_box(text_coords, text_offset, 19) ) {
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-    // and inner details as an API demo
-    text_offset = int2(0, 2);
-    if ( debug_inside_text_box(text_coords, text_offset, 10) ) {
-        int decoded_float = sign<<31 | (exp&0xff)<<23 | mant;
-        glyph_index = debug_decode_int_hexadecimal_fixed(decoded_float, wanted_digit, 8);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-    text_offset = int2(-12, 3);
-    if ( debug_inside_text_box(text_coords, text_offset, 25) ) {
-        glyph_index = debug_decode_int_binary_fixed(mant, wanted_digit+12, 23);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-    text_offset = int2(0, 4);
-    if ( debug_inside_text_box(text_coords, text_offset, 8) ) {
-        glyph_index = debug_decode_int_decimal(mant, wanted_digit);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-    text_offset = int2(0, 5);
-    if ( debug_inside_text_box(text_coords, text_offset, 4) ) {
-        glyph_index = debug_decode_int_decimal(int(expf), wanted_digit);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-
-    text_offset = int2(-2, 6);
-    if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        float_to_decode = -1.0/0.0; // Should be -inf
-        debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-    text_offset = int2(-2, 7);
-    if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        float_to_decode = sqrt(-1.0); // Maybe +nan
-        debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-    text_offset = int2(-2, 8);
-    if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        float_to_decode = -0.0; // Maybe -0.0, and it's a different binary representation than +0.0 but compilers may throw it
-        debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
-        rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
-    }
-
-    return rgba;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-// You probably don't want to change anything from this point.
-
-float4 PSEffect(FragData f_in) : TARGET
-{
-    float4 rgba = EffectLinear(f_in.uv);
-    return rgba;
-}
-
-technique Draw
-{
-    pass
-    {
-        vertex_shader = VSDefault(v_in);
-        pixel_shader = PSEffect(f_in);
     }
 }
