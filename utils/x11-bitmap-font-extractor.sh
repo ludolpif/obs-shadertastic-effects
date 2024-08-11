@@ -8,10 +8,10 @@ zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x
         for(n=0;n<256;n++)ord[sprintf("%c",n)]=n;
 		char_indice=1; font_width=4; font_height=6; def=0;
 		indent="    "; indent2="        ";
-        print "#ifndef PRINT_VALUE_FONT_GLYPHS"
-        print "#define PRINT_VALUE_FONT_GLYPH_WIDTH " font_width
-        print "#define PRINT_VALUE_FONT_GLYPH_HEIGHT " font_height
-        print "#define PRINT_VALUE_FONT_GLYPHS \\"
+        print "#ifndef DEBUG_FONT_GLYPHS"
+        print "#define DEBUG_FONT_GLYPH_WIDTH " font_width
+        print "#define DEBUG_FONT_GLYPH_HEIGHT " font_height
+        print "#define DEBUG_FONT_GLYPHS \\"
         print indent2 "/*\" \"*/ 0.0, \\"
 	}
     /^STARTCHAR/ { 
@@ -37,7 +37,7 @@ zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x
 	}
 	END {
 		print indent2 "/* ? */ " def ".0";
-        print "#endif /* PRINT_VALUE_FONT_GLYPHS */"
+        print "#endif /* DEBUG_FONT_GLYPHS */"
 	}
 '
 #STARTCHAR nine
