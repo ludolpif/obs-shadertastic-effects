@@ -38,6 +38,7 @@ Temporary doc url : https://shadertastic-doc.vercel.app/effect-development/shade
   - xurei: param_factory.hpp tous les types y sont listés
 - [ ] documenter l'incompatibilité entre ShaderTastic 0.0.8 prebuilt et le obs du dépot deb-multimedia (dmo) pour debian 12 (segfault)
 - [ ] Démêler / documenter les divers pre-pending de shader par libobs / libobs-opengl / shadertastic
+  - remarque l'opérateur "%" sur les int n'est pas portable, un #define est proposé ici : https://www.shadertoy.com/view/Dlj3Rh
 
 - [ ] Essayer de trouver une méthode pour pas API break les shaders quand on croise un pb de compat HLSL/GLSL
     - xurei: `mix == lerp`
@@ -243,7 +244,7 @@ Remarques :
 # Notes de surprises trouvées au passage dans OBS
 
 - plugins/win-capture/inject-helper/inject-helper.c avec du code obfusqué (pour les antivirus?) sur dans `open_process` et `inject_library`
-- D'après IEEE 754 on est sûr d'être bit-exact même en float32 jusqu'à des fontes en 6x4 car on a 24 bits de mantisse au moins. 
+- D'après IEEE 754 on est sûr d'être bit-exact même en float32 jusqu'à des fontes en 6x4 car on a 23 bits de mantisse au moins. 
 - Et Shadertoy confirme : https://www.shadertoy.com/view/tlGfR3
 
 
