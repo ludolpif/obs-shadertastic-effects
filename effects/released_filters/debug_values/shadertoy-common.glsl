@@ -321,7 +321,7 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
     fixed_point = debug_decode_float_mantissa_to_fixed_point(expf);
     // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
     float mantissa_implicit_one = pow(2.0, expf);
-    for ( int i = 1; i < 24; i += 1 ) {
+    for ( int i = 1; i < 24; i++ ) {
         mant *= 2;
         float mantissa_pow = expf - float(i);
         float mantissa_fractionnal = pow(2.0, mantissa_pow); // All power of two are exactly representable (mant==0, exp varies)
