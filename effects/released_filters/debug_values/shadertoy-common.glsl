@@ -193,7 +193,7 @@ int debug_decode_int_decimal(in int int_to_decode, in int wanted_digit) {
  */
 int debug_decode_int_hexadecimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
     int glyph_index = 0; // for ' '
-    if ( total_digits < 2 ) total_digits=1;
+    if ( total_digits < 1 ) total_digits=1;
     if ( wanted_digit == total_digits+1 ) {
         glyph_index = 3; // for '0'
     } else if ( wanted_digit == total_digits ) {
@@ -211,7 +211,7 @@ int debug_decode_int_hexadecimal_fixed(in int int_to_decode, in int wanted_digit
  */
 int debug_decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
     int glyph_index = 0; // for ' '
-    if ( total_digits < 2 ) total_digits=1;
+    if ( total_digits < 1 ) total_digits=1;
     if ( wanted_digit == total_digits+1 ) {
         glyph_index = 3; // for '0'
     } else if ( wanted_digit == total_digits ) {
@@ -231,8 +231,9 @@ int debug_decode_float_sign(in float float_to_decode) {
     return
         float_to_decode < 0.0?1:
         float_to_decode > 0.0?0:
-        (1.0 / float_to_decode < 1.0)?1:
-        0; // note: -0.0 is not < +0.0 if using comparison operators
+        (1.0 / float_to_decode < 1.0)?1: // for -0.0
+        0; // for +0.0
+    // note: -0.0 is not < +0.0 if using comparison operators
 }
 
 /**
@@ -248,7 +249,12 @@ int debug_decode_float_sign(in float float_to_decode) {
 int2 debug_decode_float_mantissa_to_fixed_point(in float mantissa_pow) {
     int fpart = int(clamp(-mantissa_pow, 0.0, 31.0));
     int ipart = int(clamp( mantissa_pow, 0.0, 31.0));
-    return int2( 1 << ipart >> fpart, (1000000000 >> fpart)%1000000000);
+    return int2( 1 << ipart >> fpart, (1000000000 >> fpart)%1000000000 );
+    /*
+     * note: two tricks are used here to not have conditionnal branches on this code called frequently
+     *  ">> fpart"  makes result[0] equals to 0 (and not 1)   for all strictly negative mantissa_pow
+     *  %1000000000 makes result[1] equals to 0 (and not 1e9) for all strictly positive mantissa_pow
+     */
 }
 
 /**

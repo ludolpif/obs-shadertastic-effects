@@ -44,6 +44,7 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 /* Inspired from https://www.shadertoy.com/view/3lGBDm ; Licensed under CC BY-NC-SA 3.0
     Font extracted with : zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf
     See: https://github.com/ludolpif/obs-shadertastic-effects/blob/main/utils/x11-bitmap-font-extractor.sh
+   You might like https://www.shadertoy.com/view/7dfyRH (I discovered it lately, use font texture).
 
     Primarily written for OBS Shadertastic plugin (shader library for live streaming with OBS Studio)
     See: https://shadertastic.com
@@ -225,7 +226,7 @@ int debug_decode_int_decimal(in int int_to_decode, in int wanted_digit) {
  */
 int debug_decode_int_hexadecimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
     int glyph_index = 0; // for ' '
-    if ( total_digits < 2 ) total_digits=1;
+    if ( total_digits < 1 ) total_digits=1;
     if ( wanted_digit == total_digits+1 ) {
         glyph_index = 3; // for '0'
     } else if ( wanted_digit == total_digits ) {
@@ -243,7 +244,7 @@ int debug_decode_int_hexadecimal_fixed(in int int_to_decode, in int wanted_digit
  */
 int debug_decode_int_binary_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
     int glyph_index = 0; // for ' '
-    if ( total_digits < 2 ) total_digits=1;
+    if ( total_digits < 1 ) total_digits=1;
     if ( wanted_digit == total_digits+1 ) {
         glyph_index = 3; // for '0'
     } else if ( wanted_digit == total_digits ) {
@@ -267,8 +268,9 @@ int debug_decode_float_sign(in float float_to_decode) {
     return
         float_to_decode < 0.0?1:
         float_to_decode > 0.0?0:
-        (1.0 / float_to_decode < 1.0)?1:
-        0; // note: -0.0 is not < +0.0 if using comparison operators
+        (1.0 / float_to_decode < 1.0)?1: // for -0.0
+        0; // for +0.0
+    // note: -0.0 is not < +0.0 if using comparison operators
 }
 
 /**
@@ -284,7 +286,12 @@ int debug_decode_float_sign(in float float_to_decode) {
 int2 debug_decode_float_mantissa_to_fixed_point(in float mantissa_pow) {
     int fpart = int(clamp(-mantissa_pow, 0.0, 31.0));
     int ipart = int(clamp( mantissa_pow, 0.0, 31.0));
-    return int2( 1 << ipart >> fpart, (1000000000 >> fpart)%1000000000);
+    return int2( 1 << ipart >> fpart, (1000000000 >> fpart)%1000000000 );
+    /*
+     * note: two tricks are used here to not have conditionnal branches on this code called frequently
+     *  ">> fpart"  makes result[0] equals to 0 (and not 1)   for all strictly negative mantissa_pow
+     *  %1000000000 makes result[1] equals to 0 (and not 1e9) for all strictly positive mantissa_pow
+     */
 }
 
 /**
@@ -491,46 +498,51 @@ float4 EffectLinear(float2 uv)
      *  because doing the decoding for the full texture may make the GPU too busy.
      *  For this demo, multiple lines of text will depend on this debug_decode_float() so we call it unconditionnaly
      */
-    // displaying the result
+    // displaying the result then inner details as an API demo
     text_offset = int2(-8, 1);
     if ( debug_inside_text_box(text_coords, text_offset, 19) ) {
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
-    // and inner details as an API demo
+    // show the float_to_decode as hex, from previously splitted bit fields
     text_offset = int2(0, 2);
     if ( debug_inside_text_box(text_coords, text_offset, 10) ) {
         int decoded_float = sign<<31 | (exp&0xff)<<23 | mant;
         glyph_index = debug_decode_int_hexadecimal_fixed(decoded_float, wanted_digit, 8);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
+    // show the float_to_decode mantissa 23 bits as binary number (0b........................)
     text_offset = int2(-12, 3);
     if ( debug_inside_text_box(text_coords, text_offset, 25) ) {
         glyph_index = debug_decode_int_binary_fixed(mant, wanted_digit+12, 23);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
+    // show the float_to_decode mantissa 23 bits as decimal number
     text_offset = int2(0, 4);
     if ( debug_inside_text_box(text_coords, text_offset, 8) ) {
         glyph_index = debug_decode_int_decimal(mant, wanted_digit);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
+    // show the float_to_decode exponent (without IEEE -127 offset) as decimal number
     text_offset = int2(0, 5);
     if ( debug_inside_text_box(text_coords, text_offset, 4) ) {
         glyph_index = debug_decode_int_decimal(int(expf), wanted_digit);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
-
+    // show the -inf special case
     text_offset = int2(-2, 6);
     if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
         float_to_decode = -1e39; // Should be -inf
         debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
+    // show the +nan special case
     text_offset = int2(-2, 7);
     if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
         float_to_decode = sqrt(-abs(expf)); // Maybe +nan if float_to_decode not between 1.0 and 1.5
         debug_decode_float(float_to_decode, wanted_digit, 9, 8, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         rgba = debug_print_glyph(text_coords, glyph_index)?text_color:rgba;
     }
+    // show the -0.0 special case
     text_offset = int2(-2, 8);
     if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
         float_to_decode = -0.0; // Maybe -0.0, and it's a different binary representation than +0.0 but compilers may throw it
