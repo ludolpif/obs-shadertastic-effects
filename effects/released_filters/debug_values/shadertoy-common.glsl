@@ -159,11 +159,15 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
 #else
     static int pow10_table[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000};
 #endif
-    int glyph_index = 0; // for ' '
     if ( total_digits < 1 ) total_digits = 1;
-    if ( wanted_digit == total_digits ) {
+    int glyph_index;
+    if ( wanted_digit < 0 || wanted_digit > total_digits ) {
+        glyph_index = 0; // for ' '
+    } else if ( wanted_digit == total_digits ) {
         glyph_index = int_to_decode<0?22:1; // for '-' or '+'
-    } else if ( wanted_digit >= 0 && wanted_digit < total_digits) {
+    } else if ( wanted_digit == 9 ) {
+        glyph_index = 3 + abs(int_to_decode) / pow10_table[9];
+    } else {
         int pow10_next = pow10_table[wanted_digit+1];
         int pow10_curr = pow10_table[wanted_digit];
         glyph_index = 3 + ( abs(int_to_decode) % pow10_next ) / pow10_curr;
