@@ -24,32 +24,32 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 #define DEBUG_FONT_GLYPH_WIDTH 4
 #define DEBUG_FONT_GLYPH_HEIGHT 6
 #define DEBUG_FONT_GLYPHS \
-        /*" "*/ 0.0, \
-        /* + */ 320512.0, \
-        /* . */ 4194304.0, \
-        /* 0 */ 4909632.0, \
-        /* 1 */ 14961728.0, \
-        /* 2 */ 14953024.0, \
-        /* 3 */ 12731104.0, \
-        /* 4 */ 2288288.0, \
-        /* 5 */ 12765408.0, \
-        /* 6 */ 4900960.0, \
-        /* 7 */ 8930016.0, \
-        /* 8 */ 13257312.0, \
-        /* 9 */ 12741184.0, \
-        /* a */ 6989312.0, \
-        /* b */ 13282432.0, \
-        /* c */ 6850048.0, \
-        /* d */ 6989344.0, \
-        /* e */ 7119872.0, \
-        /* f */ 4514848.0, \
-        /* i */ 14991424.0, \
-        /* n */ 11185152.0, \
-        /* x */ 10766848.0, \
-        /* - */ 57344.0, \
-        /* ? */ 4211392.0
+        /*" "*/ 0, \
+        /* + */ 320512, \
+        /* . */ 4194304, \
+        /* 0 */ 4909632, \
+        /* 1 */ 14961728, \
+        /* 2 */ 14953024, \
+        /* 3 */ 12731104, \
+        /* 4 */ 2288288, \
+        /* 5 */ 12765408, \
+        /* 6 */ 4900960, \
+        /* 7 */ 8930016, \
+        /* 8 */ 13257312, \
+        /* 9 */ 12741184, \
+        /* a */ 6989312, \
+        /* b */ 13282432, \
+        /* c */ 6850048, \
+        /* d */ 6989344, \
+        /* e */ 7119872, \
+        /* f */ 4514848, \
+        /* i */ 14991424, \
+        /* n */ 11185152, \
+        /* x */ 10766848, \
+        /* - */ 57344, \
+        /* ? */ 4211392
 #endif /* DEBUG_FONT_GLYPHS */
-/* Note : '+' is 4514880.0 from the x11 font + script, but it's ugly, manually changed here. */
+/* Note : '+' is 4514880 from the x11 font + script, but it's ugly, manually changed here. */
 
 /**
  * Returns a point in the text_coords space from uv space taking ratio, origin, offset and text height into account.
@@ -132,19 +132,21 @@ float4 debug_print_text_grid(in float4 rgba, in float2 text_coords, in int2 text
 
 /**
  * returns true if a debug pixel should be printed on target texture.
+ *  Alternative definition: return glyph_bit from the glyph at glyph_index in font for the position given by text_coords.
  * @param text_coords the text_coords point from current uv space point (see debug_get_text_coords_from_uv)
  * @param glyph_index index of the glyph to display from the array made from DEBUG_FONT_GLYPHS
  */
 bool debug_print_glyph(in float2 text_coords, in int glyph_index) {
 #ifdef _OPENGL
-    const float font[24] = float[24](DEBUG_FONT_GLYPHS);
+    const int font[24] = int[24](DEBUG_FONT_GLYPHS);
 #else
-    static float font[24] = {DEBUG_FONT_GLYPHS};
+    static int font[24] = {DEBUG_FONT_GLYPHS};
 #endif
-    float w = float(DEBUG_FONT_GLYPH_WIDTH);
-    float h = float(DEBUG_FONT_GLYPH_HEIGHT);
+    int2 bit_coord = int2( frac(text_coords) * float2(DEBUG_FONT_GLYPH_WIDTH, DEBUG_FONT_GLYPH_HEIGHT) );
+    int bit_number = bit_coord.y * DEBUG_FONT_GLYPH_WIDTH + bit_coord.x;
+
     int i = (glyph_index >= 0 && glyph_index < 24)?glyph_index:23;
-    return fmod(font[i] / pow(2.0, floor( frac(text_coords.x)*w ) + floor( frac(text_coords.y)*h )*w), 2.0) >= 1.0;
+    return (font[i] >> bit_number & 1) == 1;
 }
 
 /**
