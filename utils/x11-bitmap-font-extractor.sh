@@ -12,7 +12,7 @@ zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x
         print "#define DEBUG_FONT_GLYPH_WIDTH " font_width
         print "#define DEBUG_FONT_GLYPH_HEIGHT " font_height
         print "#define DEBUG_FONT_GLYPHS \\"
-        print indent2 "/*\" \"*/ 0.0, \\"
+        print indent2 "/*\" \"*/ 0, \\"
 	}
     /^STARTCHAR/ { 
         character=0;
@@ -31,12 +31,12 @@ zcat /usr/share/fonts/X11/misc/4x6.pcf.gz | pcf2bdf | grep -EA13 "^STARTCHAR ($x
 		if (ascii_char == "?" ) {
             def=character;
         } else {
-            print character ".0, \\";
+            print character ", \\";
         }
 		char_indice = char_indice+1;
 	}
 	END {
-		print indent2 "/* ? */ " def ".0";
+		print indent2 "/* ? */ " def;
         print "#endif /* DEBUG_FONT_GLYPHS */"
 	}
 '
