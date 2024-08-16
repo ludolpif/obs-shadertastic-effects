@@ -104,22 +104,21 @@ bool debug_inside_text_box(in float2 text_coords, in int2 text_offset, in int te
  */
 float4 debug_print_text_grid(in float4 rgba, in float2 text_coords, in int2 text_offset,
         in int cols_neg, in int lines_neg, in int cols_pos, in int lines_pos) {
-    // Make lines width thick like 1 pixel in font
-    float2 line_width = 1.0/float2(DEBUG_FONT_GLYPH_WIDTH,DEBUG_FONT_GLYPH_HEIGHT);
-
+    // Make lines thick like 1 pixel in font
+    const float2 glyph_size = float2(DEBUG_FONT_GLYPH_WIDTH,DEBUG_FONT_GLYPH_HEIGHT);
+    const float2 grid_thickness = 1.0/glyph_size;
     // Don't draw anything if we are computing a pixel outside of the grid rectangle
     float2 left_top = float2(cols_neg, lines_neg);
-    float2 right_bottom = float2(cols_pos, lines_pos) + line_width;
+    float2 right_bottom = float2(cols_pos, lines_pos) + grid_thickness;
     if ( !inside_box(text_coords, left_top, right_bottom) ) {
         return rgba;
     }
-
     // Highlight the uv-spaced anchor of the grid
-    if ( inside_box(text_coords + float2(text_offset), float2(0.0, 0.0), line_width) ) {
+    if ( inside_box(text_coords + float2(text_offset), float2(0.0, 0.0), grid_thickness) ) {
         return float4(0.0, 0.0, 1.0, 1.0);
     }
     // Print the grid
-    if ( frac(text_coords.x) < line_width.x || frac(text_coords.y) < line_width.y ) {
+    if ( frac(text_coords.x) < grid_thickness.x || frac(text_coords.y) < grid_thickness.y ) {
         return float4(0.2, 0.2, 0.2, 1.0);
     }
     // Make the character at origin with a dark background
@@ -140,13 +139,26 @@ bool debug_print_glyph(in float2 text_coords, in int glyph_index) {
 #ifdef _OPENGL
     const int font[24] = int[24](DEBUG_FONT_GLYPHS);
 #else
-    static int font[24] = {DEBUG_FONT_GLYPHS};
+    static const int font[24] = {DEBUG_FONT_GLYPHS};
 #endif
-    int2 bit_coord = int2( frac(text_coords) * float2(DEBUG_FONT_GLYPH_WIDTH, DEBUG_FONT_GLYPH_HEIGHT) );
-    int bit_number = bit_coord.y * DEBUG_FONT_GLYPH_WIDTH + bit_coord.x;
-
+    // select the right glyph in the font, with a default '?' in case of out-of-bounds glyph_index
     int i = (glyph_index >= 0 && glyph_index < 24)?glyph_index:23;
+    // from 2D fractionnal parts of text_coords, find which bit in font encodes the current pixel
+    const float2 glyph_size = float2(DEBUG_FONT_GLYPH_WIDTH,DEBUG_FONT_GLYPH_HEIGHT);
+    int2 bit_coord = int2( frac(text_coords) * glyph_size );
+    int bit_number = bit_coord.y * DEBUG_FONT_GLYPH_WIDTH + bit_coord.x;
+    // return the selected glyph bit as bool
     return (font[i] >> bit_number & 1) == 1;
+}
+
+//TODO comments
+int debug_get_pow10_table(int power) {
+#ifdef _OPENGL
+    const int pow10_table[10] = int[10](1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000);
+#else
+    static const int pow10_table[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000};
+#endif
+    return pow10_table[power];
 }
 
 /**
@@ -156,11 +168,6 @@ bool debug_print_glyph(in float2 text_coords, in int glyph_index) {
  * @param total_digits int_to_decode will be displayed on total_digits digits + 1 for sign, with leading 0's.
  */
 int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
-#ifdef _OPENGL
-    const int pow10_table[10] = int[10](1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000);
-#else
-    static int pow10_table[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000};
-#endif
     if ( total_digits < 1 ) total_digits = 1;
     int glyph_index;
     if ( wanted_digit < 0 || wanted_digit > total_digits ) {
@@ -168,10 +175,11 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
     } else if ( wanted_digit == total_digits ) {
         glyph_index = int_to_decode<0?22:1; // for '-' or '+'
     } else if ( wanted_digit == 9 ) {
-        glyph_index = 3 + abs(int_to_decode) / pow10_table[9];
+        glyph_index = 3 + abs(int_to_decode) / debug_get_pow10_table(9);
     } else {
-        int pow10_next = pow10_table[wanted_digit+1];
-        int pow10_curr = pow10_table[wanted_digit];
+        int pow10_next = debug_get_pow10_table(wanted_digit+1);
+        int pow10_curr = debug_get_pow10_table(wanted_digit);
+        //note: a % b is portable only in positive numbers case. See https://www.shadertoy.com/view/Dlj3Rh
         glyph_index = 3 + ( abs(int_to_decode) % pow10_next ) / pow10_curr;
     }
     return glyph_index;
@@ -180,14 +188,22 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
 /**
  * returns a glyph_index to use with debug_print_glyph() to make a rudimentary printf("%d",int_to_decode), one wanted_digit at a time.
  *  This is a wrapper for debug_decode_int_decimal_fixed() trying to guess the right total_digits for you.
- *  for a few int_to_decode values, it may lead to print one spurious leading non-significative 0
- *  because it uses approximations (log2(x)/log2(10)) to compute total_digits.
  * @param int_to_decode int value to be decoded as a decimal number
  * @param wanted_digit digit number you want to get from int_to_decode (0: units, 1: tens, 2: hundreds...)
  */
 int debug_decode_int_decimal(in int int_to_decode, in int wanted_digit) {
-    // Note: total_digits estimation is not always exact, may a leading 0 could appear
-    int total_digits = 1 + int(log2(abs(float(int_to_decode)))/log2(10.0));
+    int int_to_decode_abs = abs(int_to_decode);
+    int total_digits = int_to_decode==0?1:10;
+    // note: the compiler will unroll the loop, so I'm not puting dependancies between iterations nor early breaks
+    // at the cost of more debug_get_pow10_table() calls, hoping it helps to output optimized code in most cases.
+    // I am unsure about being more or less costly than int(log10(abs(float(int_to_decode_abs)))) approximate method.
+    for (int i=0; i<10; i++) {
+        int pow10_next = debug_get_pow10_table(i+1);
+        int pow10_curr = debug_get_pow10_table(i);
+        if ( int_to_decode_abs >= pow10_curr && int_to_decode_abs < pow10_next ) {
+           total_digits = i+1;
+        }
+    }
     return debug_decode_int_decimal_fixed(int_to_decode, wanted_digit, total_digits);
 }
 
