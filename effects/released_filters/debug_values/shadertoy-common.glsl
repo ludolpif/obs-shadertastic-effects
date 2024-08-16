@@ -65,7 +65,7 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
  */
 float2 debug_get_text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in float uv_aspect_ratio,
         in float uv_line_height, in int2 text_offset) {
-    float font_ratio = float(DEBUG_FONT_GLYPH_HEIGHT)/float(DEBUG_FONT_GLYPH_WIDTH);
+    const float font_ratio = float(DEBUG_FONT_GLYPH_HEIGHT)/float(DEBUG_FONT_GLYPH_WIDTH);
     return (uv - uv_grid_origin)*float2(-uv_aspect_ratio*font_ratio, 1.0)/uv_line_height - float2(text_offset);
 }
 
@@ -151,7 +151,11 @@ bool debug_print_glyph(in float2 text_coords, in int glyph_index) {
     return (font[i] >> bit_number & 1) == 1;
 }
 
-//TODO comments
+/**
+ * returns 10^power integer value using a table.
+ *  Internally used by debug_decode_int_decimal*(). You should not need to call this function directly.
+ * @param power needs to be 0<=power<10 (10^10 overflows 32 bits integers)
+ */
 int debug_get_pow10_table(int power) {
 #ifdef _OPENGL
     const int pow10_table[10] = int[10](1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000);
@@ -256,6 +260,7 @@ int debug_decode_float_sign(in float float_to_decode) {
         (1.0 / float_to_decode < 1.0)?1: // for -0.0
         0; // for +0.0
     // note: -0.0 is not < +0.0 if using comparison operators
+    // TODO may someone know a fairly portable way without division to detect -0.0 ?
 }
 
 /**
@@ -389,14 +394,14 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
         }
     } else {
         // print using scientific notation like -1e12 or +1e-36 or sci_m * 10^sci_n
-        // log10f seems to loose precision for tiny float_to_decode_abs values (negative log values)
+        //TODO log10f seems to loose precision for tiny float_to_decode_abs values (negative log values)
         float log10f = log2(float_to_decode_abs)/log2(10.0);
         if ( wanted_digit < -3 || wanted_digit > 2 ) {
             glyph_index = 0; // for ' '
         } else if ( wanted_digit == 2 ) {
             glyph_index = (sign==1?22:1); // for '-' or '+'
         } else if ( wanted_digit == 1 ) {
-            // no sci_m calculus, seems tricky to write
+            //TODO no sci_m calculus, seems tricky to write
             glyph_index = 4; // for '1'
         } else if ( wanted_digit == 0 ) {
             glyph_index = 17; // for 'e'
