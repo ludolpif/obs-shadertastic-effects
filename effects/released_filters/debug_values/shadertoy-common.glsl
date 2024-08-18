@@ -188,7 +188,7 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
  */
 int debug_decode_int_decimal(in int int_to_decode, in int wanted_digit) {
     const float inv_log10 = 1.0/log2(10.0);
-    int total_digits = int(log2(float(abs(int_to_decode)))*inv_log10);
+    int total_digits = 1+int(log2(float(abs(int_to_decode)))*inv_log10);
     /* note: tried a for loop with 10 iterations, then a while loop with integer comparisons to get exact total_digits
      * it ran smoothly on many platforms but makes code totally unusable on Chrome + Windows10 + NVIDIA driver + GTX1060
      * (no output at all, shadertoy player running at 6 FPS)
