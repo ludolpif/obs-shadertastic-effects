@@ -152,26 +152,17 @@ bool debug_print_glyph(in float2 text_coords, in int glyph_index) {
 }
 
 /**
- * returns 10^power integer value using a table.
- *  Internally used by debug_decode_int_decimal*(). You should not need to call this function directly.
- * @param power needs to be 0<=power<10 (10^10 overflows 32 bits integers)
- */
-int debug_get_pow10_table(int power) {
-#ifdef _OPENGL
-    const int pow10_table[10] = int[10](1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000);
-#else
-    static const int pow10_table[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000};
-#endif
-    return pow10_table[power];
-}
-
-/**
  * returns a glyph_index to use with debug_print_glyph() to make a rudimentary printf("%d",int_to_decode), one wanted_digit at a time.
  * @param int_to_decode int value to be decoded as a decimal number
  * @param wanted_digit digit number you want to get from int_to_decode (0: units, 1: tens, 2: hundreds...)
  * @param total_digits int_to_decode will be displayed on total_digits digits + 1 for sign, with leading 0's.
  */
 int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in int total_digits) {
+#ifdef _OPENGL
+    const int pow10_table[10] = int[10](1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000);
+#else
+    static const int pow10_table[10] = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000};
+#endif
     if ( total_digits < 1 ) total_digits = 1;
     int glyph_index;
     if ( wanted_digit < 0 || wanted_digit > total_digits ) {
@@ -179,10 +170,10 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
     } else if ( wanted_digit == total_digits ) {
         glyph_index = int_to_decode<0?22:1; // for '-' or '+'
     } else if ( wanted_digit == 9 ) {
-        glyph_index = 3 + abs(int_to_decode) / debug_get_pow10_table(9);
+        glyph_index = 3 + abs(int_to_decode) / pow10_table[9];
     } else {
-        int pow10_next = debug_get_pow10_table(wanted_digit+1);
-        int pow10_curr = debug_get_pow10_table(wanted_digit);
+        int pow10_next = pow10_table[wanted_digit+1];
+        int pow10_curr = pow10_table[wanted_digit];
         //note: a % b is portable only in positive numbers case. See https://www.shadertoy.com/view/Dlj3Rh
         glyph_index = 3 + ( abs(int_to_decode) % pow10_next ) / pow10_curr;
     }
@@ -196,18 +187,12 @@ int debug_decode_int_decimal_fixed(in int int_to_decode, in int wanted_digit, in
  * @param wanted_digit digit number you want to get from int_to_decode (0: units, 1: tens, 2: hundreds...)
  */
 int debug_decode_int_decimal(in int int_to_decode, in int wanted_digit) {
-    int int_to_decode_abs = abs(int_to_decode);
-    int total_digits = int_to_decode==0?1:10;
-    // note: the compiler will unroll the loop, so I'm not puting dependancies between iterations nor early breaks
-    // at the cost of more debug_get_pow10_table() calls, hoping it helps to output optimized code in most cases.
-    // I am unsure about being more or less costly than int(log10(abs(float(int_to_decode_abs)))) approximate method.
-    for (int i=0; i<10; i++) {
-        int pow10_next = debug_get_pow10_table(i+1);
-        int pow10_curr = debug_get_pow10_table(i);
-        if ( int_to_decode_abs >= pow10_curr && int_to_decode_abs < pow10_next ) {
-           total_digits = i+1;
-        }
-    }
+    const float inv_log10 = 1.0/log2(10.0);
+    int total_digits = int(log2(float(abs(int_to_decode)))*inv_log10);
+    /* note: tried a for loop with 10 iterations, then a while loop with integer comparisons to get exact total_digits
+     * it ran smoothly on many platforms but makes code totally unusable on Chrome + Windows10 + NVIDIA driver + GTX1060
+     * (no output at all, shadertoy player running at 6 FPS)
+     */
     return debug_decode_int_decimal_fixed(int_to_decode, wanted_digit, total_digits);
 }
 
