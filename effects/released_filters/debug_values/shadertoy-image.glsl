@@ -13,20 +13,27 @@
 
 const bool should_print_grid = true;
 const bool should_print_font_test = true;
-const float font_size = 0.083333333;
+const float font_size = 0.083333333; // for option 1 (uv coordinates)
+const float font_scale = 4.0; // for option 2 (pixel coordinates)
+const float2 grid_origin = float2(0.5,0.15); // in [0.0;1.0[²
+const float4 text_color = float4(0.9, 0.2, 0.2, 1.0);
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-    // Normalized pixel coordinates (from 0 to 1)
+    // Tech demo on gray background
+    vec4 rgba = vec4(0.2, 0.2, 0.2, 1.0);
+
+    int2 text_offset = int2(0,-1);
+
+    /* Option 1: UV coordinates (from 0 to 1)
     vec2 uv = fragCoord/iResolution.xy;
     uv.y = 1.0 - uv.y; // with 'v' going from 0.0:top to 1.0:bottom as OBS do
     float aspect_ratio = iResolution.x/iResolution.y;
-    // Tech demo on gray background
-    vec4 rgba = vec4(0.2, 0.2, 0.2, 1.0);
-    float4 text_color = float4(0.9, 0.2, 0.2, 1.0);
     // Compute once current pixel in text_coords space
-    int2 text_offset = int2(0,-1);
-    float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.5,0.15), aspect_ratio, font_size, text_offset );
+    float2 text_coords = debug_get_text_coords_from_uv(uv, grid_origin, aspect_ratio, font_size, text_offset );
+    */
+    /* Option 2 : fragCoord (pixel) coordinates */
+    float2 text_coords = debug_get_text_coords_from_fragCoord(fragCoord, iResolution.xy*grid_origin, iResolution.xy, font_scale, text_offset);
 
     if ( should_print_grid ) {
         rgba = debug_print_text_grid(rgba, text_coords, text_offset, -12, 0, 13, 9);

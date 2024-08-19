@@ -70,6 +70,23 @@ float2 debug_get_text_coords_from_uv(in float2 uv, in float2 uv_grid_origin, in 
 }
 
 /**
+ * Returns a point in the text_coords space from fragCoord (pixel) space taking scale, origin, offset into account.
+ *  text_coords has integer part that represent a glyph, and fractionnal part for glyph pixels.
+ *  text_coords[0] goes from right to left (as numbers digit powers/positions goes)
+ *  text_coords[1] goes from top to bottom (as lines in a terminal)
+ * @param fragCoord point in fragCoord (pixel) space, should be between [0.0,0.0] and resolution
+ * @param grid_origin point in fragCoord (pixel) space that becomes the origin [0.0,0.0] in text_coord space
+ * @param resolution size of the output texture in pixels
+ * @param font_scale each pixel in font should be zoomed by this factor on the target texture
+ * @param text_offset offset in text_coords space to ease text positionning in a glyph size unit
+ */
+float2 debug_get_text_coords_from_fragCoord(float2 fragCoord, float2 grid_origin, float2 resolution, float font_scale, int2 text_offset) {
+    const float2 glyph_size = float2(DEBUG_FONT_GLYPH_WIDTH,DEBUG_FONT_GLYPH_HEIGHT);
+    float2 text_origin = grid_origin*float2(1.0, -1.0) + float2(0.0, resolution.y);
+    return (text_origin - fragCoord) / (glyph_size*font_scale) - float2(text_offset);
+}
+
+/**
  * returns the wanted_digit integer number from a text_coords point for debug_decode_* functions.
  *  wanted_digit convention for int: 0 will be units, 1 tens, 2 hundreds...
  *  wanted_digit convention for floats : 0 will be '.', 1 units, 2 tens... -1 first digit of fractionnal part...
