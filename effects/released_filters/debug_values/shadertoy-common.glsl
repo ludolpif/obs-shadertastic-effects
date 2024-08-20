@@ -304,6 +304,59 @@ int debug_format_float_special_values(in int sign, in int3 glyphs, in int wanted
 }
 
 /**
+ * returns a glyph_index for a finite float value described by sign+fixed_point, at wanted_digit.
+ *  Internally used by debug_decode_float(). You should not need to call this function directly.
+ *  It's for floats that's fit on 9 digits with up to 8 decimal places.
+ * @param sign Sign of the specal value
+ * @param fixed_point fixed point number representation [0] is integer part,
+ *   [1] is fractionnal part with 1e9 implicit multiplicator
+ * @param wanted_digit digit number you want to get from glyphs triplet (from 10 to -8, 0 is '.')
+ */
+int debug_format_float_finite_values_natural_form(int sign, int2 fixed_point, int wanted_digit) {
+    int glyph_index;
+    if ( wanted_digit < -8 || wanted_digit > 10 ) {
+        glyph_index = 0; // for ' '
+    } else if ( wanted_digit == 10 ) {
+        glyph_index = (sign==1?22:1); // for '-' or '+'
+    } else if ( wanted_digit > 0 ) {
+        glyph_index = debug_decode_int_decimal_fixed(fixed_point[0], wanted_digit-1, 9);
+    } else if ( wanted_digit == 0 ) {
+        glyph_index = 2; // for '.'
+    } else /* ( wanted_digit < 0 ) */ {
+        glyph_index = debug_decode_int_decimal_fixed(fixed_point[1], wanted_digit+8, 8);
+    }
+    return glyph_index;
+}
+
+/**
+ * returns a glyph_index for a finite float value described by sign+float_to_decode_abs, at wanted_digit.
+ *  Internally used by debug_decode_float(). You should not need to call this function directly.
+ *  It's for floats values that are very tiny or very big
+ * @param sign Sign of the specal value
+ * @param float_to_decode_abs abs(float_to_decode)
+ * @param wanted_digit digit number you want to get from glyphs triplet (from 10 to -8, 0 is '.')
+ */
+int debug_format_float_finite_values_scientific_form(int sign, float float_to_decode_abs, int wanted_digit) {
+    int glyph_index;
+    //TODO log10f seems to loose precision for tiny float_to_decode_abs values (negative log values)
+    float log10f = log2(float_to_decode_abs)/log2(10.0);
+    if ( wanted_digit < -3 || wanted_digit > 2 ) {
+        glyph_index = 0; // for ' '
+    } else if ( wanted_digit == 2 ) {
+        glyph_index = (sign==1?22:1); // for '-' or '+'
+    } else if ( wanted_digit == 1 ) {
+        //TODO no sci_m calculus for now, seems tricky to write
+        glyph_index = 4; // for '1'
+    } else if ( wanted_digit == 0 ) {
+        glyph_index = 17; // for 'e'
+    } else /* ( wanted_digit < 0 ) */ {
+        int sci_n = int(log10f);
+        glyph_index = debug_decode_int_decimal_fixed(sci_n, wanted_digit+3, 2);
+    }
+    return glyph_index;
+}
+
+/**
  * returns a glyph_index to use with debug_print_glyph() to make a rudimentary printf("%f",float_to_decode), one wanted_digit at a time.
  *  This function has many out paramters to get as many details as possible from float_to_decode.
  *  With IEEE754 floats on 32 bits, biggest is -/+3.4028235e38, tiniest non-zero is -/+1e-45.
@@ -332,84 +385,58 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
     if ( float_to_decode == 0.0 ) {
         expf = -126.0; exp = 0; mant = 0; fixed_point = int2(0,0);
         glyph_index = debug_format_float_special_values(sign, int3(3,2,3), wanted_digit); // for " +0.0 "
-        return;
-    }
-    if ( isnan(float_to_decode) || isinf(float_to_decode) ) {
+    } else if ( isnan(float_to_decode) || isinf(float_to_decode) ) {
         expf = float_to_decode; // non-finite value as a placeholder
         exp = 255; mant = 0; fixed_point = int2(0,0);
         int3 glyphs = isnan(float_to_decode)?int3(20,13,20):int3(19,20,18); // for "nan" or "inf"
         glyph_index = debug_format_float_special_values(sign, glyphs, wanted_digit);
-        return;
-    }
-    float float_to_decode_abs = abs(float_to_decode);
-    // We will transform float_to_decode to conveniently decode it, do it in a copy for clarity
-    float float_tmp = float_to_decode_abs;
-
-    // Exponent extraction (for all finite cases)
-    expf = floor(log2(float_tmp)); // float exponent without -127 offset (out parameter)
-    exp = int(expf) + 127; // IEEE754 encoded 8bits-wide exponent (out parameter)
-
-    // Extract the mantissa bit per bit, compute the fixed_point value simultaneously
-    // using only float values that are exactly represented in IEEE754 encoding (powers of two)
-    mant = 0; // IEEE754 23bits-wide mantissa as int without the leading implicit one
-    //fixed_point: limited range fixed point representation with 8 decimals for floats in [-1e10-1 ; 1e10-1]
-    fixed_point = debug_decode_float_mantissa_to_fixed_point(expf);
-    // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
-    float mantissa_implicit_one = pow(2.0, expf);
-    for ( int i = 1; i < 24; i++ ) {
-        mant *= 2;
-        float mantissa_pow = expf - float(i);
-        float mantissa_fractionnal = pow(2.0, mantissa_pow); // All power of two are exactly representable (mant==0, exp varies)
-        float crible = mantissa_implicit_one + mantissa_fractionnal;
-        if ( float_tmp >= crible ) {
-            float_tmp -= mantissa_fractionnal;
-            mant += 1;
-            // Fixed point is split into integer part and fractionnal part
-            // The way the floats are encoded garantee there is not carry to handle between those two parts
-            fixed_point += debug_decode_float_mantissa_to_fixed_point(mantissa_pow);
-        }
-    }
-    //TODO may the user want to round are arbitraty number of digit, allow it, this may lead to carry for fixed_point[0]
-    // Manually round fixed_point fractionnal part from 9 to 8 digits because the 9th digit
-    //  is not always exact with the table we use (and we can't put 5e9 in int)
-    int to_be_rounded = fixed_point[1];
-    if ( to_be_rounded % 10 >= 5 ) to_be_rounded += 10;
-    fixed_point[1] = to_be_rounded / 10;
-
-    // To ease a rudimentary printf("%f",x) this function output glyph_index, the character index to display at wanted_digit position
-    //TODO make number of digits on integer and fractionnal part configurable by the user (max 9 and 8)
-    /* Note: next if() need to be at least as restrictive as preconditions
-     * of debug_decode_float_mantissa_to_fixed_point() to not display wrong results
-     */
-    if ( float_to_decode_abs >= 0.00000001 && float_to_decode_abs < 1000000000.0 ) {
-        // print a natural form
-        if ( wanted_digit < -8 || wanted_digit > 10 ) {
-            glyph_index = 0; // for ' '
-        } else if ( wanted_digit == 10 ) {
-            glyph_index = (sign==1?22:1); // for '-' or '+'
-        } else if ( wanted_digit > 0 ) {
-            glyph_index = debug_decode_int_decimal_fixed(fixed_point[0], wanted_digit-1, 9);
-        } else if ( wanted_digit == 0 ) {
-            glyph_index = 2; // for '.'
-        } else /* ( wanted_digit < 0 ) */ {
-            glyph_index = debug_decode_int_decimal_fixed(fixed_point[1], wanted_digit+8, 8);
-        }
     } else {
-        // print using scientific notation like -1e12 or +1e-36 or sci_m * 10^sci_n
-        //TODO log10f seems to loose precision for tiny float_to_decode_abs values (negative log values)
-        float log10f = log2(float_to_decode_abs)/log2(10.0);
-        if ( wanted_digit < -3 || wanted_digit > 2 ) {
-            glyph_index = 0; // for ' '
-        } else if ( wanted_digit == 2 ) {
-            glyph_index = (sign==1?22:1); // for '-' or '+'
-        } else if ( wanted_digit == 1 ) {
-            //TODO no sci_m calculus, seems tricky to write
-            glyph_index = 4; // for '1'
-        } else if ( wanted_digit == 0 ) {
-            glyph_index = 17; // for 'e'
-        } else /* ( wanted_digit < 0 ) */ {
-            int sci_n = int(log10f);
-            glyph_index = debug_decode_int_decimal_fixed(sci_n, wanted_digit+3, 2);
+        float float_to_decode_abs = abs(float_to_decode);
+        // We will transform float_to_decode to conveniently decode it, do it in a copy for clarity
+        float float_tmp = float_to_decode_abs;
+
+        // Exponent extraction (for all finite cases)
+        expf = floor(log2(float_tmp)); // float exponent without -127 offset (out parameter)
+        exp = int(expf) + 127; // IEEE754 encoded 8bits-wide exponent (out parameter)
+
+        // Extract the mantissa bit per bit, compute the fixed_point value simultaneously
+        // using only float values that are exactly represented in IEEE754 encoding (powers of two)
+        mant = 0; // IEEE754 23bits-wide mantissa as int without the leading implicit one
+        //fixed_point: limited range fixed point representation with 8 decimals for floats in [-1e10-1 ; 1e10-1]
+        fixed_point = debug_decode_float_mantissa_to_fixed_point(expf);
+        // The 1 is always implicit in the sense that no bit represent it in the mantissa nor exponent bitfields
+        float mantissa_implicit_one = pow(2.0, expf);
+        for ( int i=1; i<24; i++ ) {
+            mant = mant << 1;
+            float mantissa_pow = expf - float(i);
+            float mantissa_fractionnal = pow(2.0, mantissa_pow); // All power of two are exactly representable (mant==0, exp varies)
+            float crible = mantissa_implicit_one + mantissa_fractionnal;
+            if ( float_tmp >= crible ) {
+                float_tmp -= mantissa_fractionnal;
+                mant = mant | 1;
+                // Fixed point is split into integer part and fractionnal part
+                // The way the floats are encoded garantee there is not carry to handle between those two parts
+                fixed_point += debug_decode_float_mantissa_to_fixed_point(mantissa_pow);
+            }
+        }
+        //TODO may the user want to round are arbitrary number of digit, allow it, this may lead to carry for fixed_point[0]
+        // Manually round fixed_point fractionnal part from 9 to 8 digits because the 9th digit
+        //  is not always exact with the table we use (and we can't put 5e9 in int)
+        int to_be_rounded = fixed_point[1];
+        if ( to_be_rounded % 10 >= 5 ) to_be_rounded += 10;
+        fixed_point[1] = to_be_rounded / 10;
+
+        // To ease a rudimentary printf("%f",x) this function output glyph_index, the character index to display at wanted_digit position
+        //TODO make number of digits on integer and fractionnal part configurable by the user (max 9 and 8)
+        /* Note: next if() need to be at least as restrictive as preconditions
+         * of debug_decode_float_mantissa_to_fixed_point() to not display wrong results
+         */
+        if ( float_to_decode_abs >= 0.00000001 && float_to_decode_abs < 1000000000.0 ) {
+            // print a natural form
+            glyph_index = debug_format_float_finite_values_natural_form(sign, fixed_point, wanted_digit);
+        } else {
+            // print using scientific notation like -1e12 or +1e-36 or sci_m * 10^sci_n
+            glyph_index = debug_format_float_finite_values_scientific_form(sign, float_to_decode_abs, wanted_digit);
         }
     }
 }
