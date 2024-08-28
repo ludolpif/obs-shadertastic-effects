@@ -1,0 +1,33 @@
+{
+  "label": "[Face Detection] Anonymize",
+  "steps": 1,
+  "input_time": false,
+  "input_facedetection": true,
+  "parameters": [
+    {
+      "name": "anon_mode",
+      "label": "Anonymize mode",
+      "type": "list_int",
+      "values": [
+        {"label": "Black rectangle over eyes", "value": 0},
+        {"label": "Pixelate whole face", "value": 1}
+      ],
+      "default": 0
+    },
+    {
+      "name": "noface_mode",
+      "label": "No face detected mode",
+      "type": "list_int",
+      "values": [
+        {"label": "Anonymize the whole picture (unsafe)", "value": 0},
+        {"label": "Display the whole image (very unsafe)", "value": 1}
+      ],
+      "default": 0
+    },
+    {
+      "name": "disclaimer",
+      "value": "Disclaimer: this filter do not garantee that every video frame will be correctly anonymised. Face detection use neural network that can hallucinate some features on picture as a figure and may blur / obfuscate the wrong part of the picture. Use it only as an entertainement filter. No garantee of any kind is provided.",
+      "type": "text"
+    }
+  ]
+}
