@@ -9,7 +9,7 @@ uniform float rand_seed;       // Seed for random functions
 uniform int current_step;      // index of current step (for multistep effects)
 */
 
-// Specific parameters of the face detection feature (enabled in meta.json with  "input_facedetection": true)
+// Specific parameters of the face detection feature (enabled in meta.json with "input_facedetection": true)
 uniform float2 fd_leye_1;
 uniform float2 fd_leye_2;
 uniform float2 fd_reye_1;
