@@ -31,11 +31,6 @@ sampler_state textureSampler {
     AddressU  = Clamp;
     AddressV  = Clamp;
 };
-sampler_state pointsSampler {
-    Filter    = Point;
-    AddressU  = Clamp;
-    AddressV  = Clamp;
-};
 
 struct VertData {
     float2 uv  : TEXCOORD0;
@@ -53,46 +48,24 @@ VertData VSDefault(VertData v_in)
     vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
     return vert_out;
 }
+
 //----------------------------------------------------------------------------------------------------------------------
 
-#define PI 3.1415926535
-
-float rand2(float2 co){
-	float v = sin(dot(co, float2(12.9898, 78.233))) * 43758.5453;
-	return fract(v);
-}
-float rand(float a, float b) {
-	return rand2(float2(a, b));
-}
-//----------------------------------------------------------------------------------------------------------------------
-
-bool insideBox(float2 v, float2 topLeft, float2 bottomRight) {
+bool inside_box(float2 v, float2 topLeft, float2 bottomRight) {
     float2 s = step(topLeft, v) - step(bottomRight, v);
     return s.x * s.y != 0.0;
 }
-//----------------------------------------------------------------------------------------------------------------------
 
-float triangleArea(float2 p1, float2 p2, float2 p3) {
-    return 0.5 * ((p2.x - p1.x) * (p3.y - p1.y) - (p3.x - p1.x) * (p2.y - p1.y));
-}
-//----------------------------------------------------------------------------------------------------------------------
-
-float2 barycentricCoordinates(float2 p1, float2 p2, float2 p3, float2 point) {
-    float totalArea = triangleArea(p1, p2, p3);
-    float u = triangleArea(p3, p1, point) / totalArea;
-    float v = triangleArea(p1, p2, point) / totalArea;
-    return float2(u, v);
-}
 //----------------------------------------------------------------------------------------------------------------------
 
 float4 EffectLinear(float2 uv)
 {
-    float aspectRatio = vpixel/upixel;
-    float2 orthoCorrection = float2(aspectRatio, 1.0);
-    float2 uv_ortho = uv * orthoCorrection;
+    float aspect_ratio = vpixel/upixel;
+    float2 ortho_correction = float2(aspect_ratio, 1.0);
+    float2 uv_ortho = uv * ortho_correction;
 
-    float2 fd_leye_center = ((fd_leye_1 + fd_leye_2) / 2.0) * orthoCorrection;
-    float2 fd_reye_center = ((fd_reye_1 + fd_reye_2) / 2.0) * orthoCorrection;
+    float2 fd_leye_center = ((fd_leye_1 + fd_leye_2) / 2.0) * ortho_correction;
+    float2 fd_reye_center = ((fd_reye_1 + fd_reye_2) / 2.0) * ortho_correction;
 
     float2 eyes_center = (fd_leye_center + fd_reye_center) / 2.0;
 
@@ -124,28 +97,29 @@ float4 EffectLinear(float2 uv)
     fd_leye_center -= float2(0.0, (fd_reye_center.x - fd_leye_center.x) * 0.12);
     fd_reye_center += float2(0.0, (fd_reye_center.x - fd_leye_center.x) * 0.12);
 
+    float2 uv_squares = 16.0*ortho_correction;
+    float2 uv_pixelate = floor(uv*uv_squares+0.5)/uv_squares;
     bool no_face = (fd_face_1.x == -1.0); // All fd_* are set to (-1.0,-1.0) if no face detected
     bool drop = false;
     bool pixelate = false;
 
-    if ( anon_mode == 0 ) {
+    if ( anon_mode == 0 /* Black rectangle over eyes */) {
         if ( no_face ) {
+            // Drop every pixel if "No face detected mode" is "Anonymize the whole picture"
             drop = (noface_mode==0);
-        } else if (insideBox(uv_ortho_rotated, fd_leye_center, fd_reye_center)) {
+        } else if (inside_box(uv_ortho_rotated, fd_leye_center, fd_reye_center)) {
+            // TODO make inside test with uv_pixelate and the best coords
             drop = true;
         }
-    } else /* anon_mode == 1 */ {
+    } else /* anon_mode == 1, Pixelate whole face */ {
         if ( no_face ) {
+            // Pixelate every pixel if "No face detected mode" is "Anonymize the whole picture"
             pixelate = (noface_mode==0);
-        } else if (insideBox(uv, fd_face_1, fd_face_2)) {
+        } else if (inside_box(uv, fd_face_1, fd_face_2)) {
             pixelate = true;
         }
     }
-    if ( pixelate ) {
-        float2 uv_squares = 16.0*float2(aspectRatio, 1.0);
-        uv = floor(uv*uv_squares+0.5)/uv_squares;
-    }
-    float4 rgba = image.Sample(textureSampler, uv);
+    float4 rgba = image.Sample(textureSampler, pixelate?uv_pixelate:uv);
     return drop?float4(0.0, 0.0, 0.0, 1.0):rgba;
 }
 //----------------------------------------------------------------------------------------------------------------------

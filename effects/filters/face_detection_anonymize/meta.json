@@ -26,7 +26,7 @@
     },
     {
       "name": "disclaimer",
-      "value": "Disclaimer: this filter do not garantee that every video frame will be correctly anonymised. Face detection use neural network that can hallucinate some features on picture as a figure and may blur / obfuscate the wrong part of the picture, temporal smoothing can also lead to mistakes. Use it only as an entertainement filter. No garantee of any kind is provided.",
+      "value": "Disclaimer: this filter do not garantee that every video frame will be correctly anonymised. Face detection use neural network that can hallucinate some features on picture as a face and may blur / obfuscate the wrong part of the picture, temporal smoothing can also lead to mistakes. Use it only as an entertainement filter. No garantee of any kind is provided.",
       "type": "text"
     }
   ]
