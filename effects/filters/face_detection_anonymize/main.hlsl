@@ -57,7 +57,15 @@ bool inside_box(float2 v, float2 topLeft, float2 bottomRight) {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-
+// Note : float2x2 matrix is supported by OBS-SL parser but not translated, only float3x3, 3x4 and 4x4 are usable.
+float2 rotate2d(float2 p, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return float2(
+        p.x*c - p.y*s,
+        p.x*s + p.y*c
+    );
+}
 float4 EffectLinear(float2 uv)
 {
     float aspect_ratio = vpixel/upixel;
@@ -74,21 +82,10 @@ float4 EffectLinear(float2 uv)
     float2 uv_ortho_rotated = uv_ortho - eyes_center;
 
     float angle = -atan2((fd_reye_center.y - fd_leye_center.y), (fd_reye_center.x - fd_leye_center.x));
-
-    uv_ortho_rotated = float2(
-        uv_ortho_rotated.x * cos(angle) - uv_ortho_rotated.y * sin(angle),
-        uv_ortho_rotated.x * sin(angle) + uv_ortho_rotated.y * cos(angle)
-    );
-
-    fd_leye_center = float2(
-        fd_leye_center.x * cos(angle) - fd_leye_center.y * sin(angle),
-        fd_leye_center.x * sin(angle) + fd_leye_center.y * cos(angle)
-    );
-
-    fd_reye_center = float2(
-        fd_reye_center.x * cos(angle) - fd_reye_center.y * sin(angle),
-        fd_reye_center.x * sin(angle) + fd_reye_center.y * cos(angle)
-    );
+    
+    uv_ortho_rotated = rotate2d(uv_ortho_rotated, angle);
+    fd_leye_center = rotate2d(fd_leye_center, angle);
+    fd_reye_center = rotate2d(fd_reye_center, angle);
 
     float fd_eyes_dist = distance(fd_leye_center, fd_reye_center);
 
