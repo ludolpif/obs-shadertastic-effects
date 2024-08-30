@@ -404,7 +404,9 @@ void debug_decode_float(in float float_to_decode, in int wanted_digit, in int in
         // print a natural form
         if ( wanted_digit < -8 || wanted_digit > 10 ) {
             glyph_index = 0; // for ' '
-        } else if ( wanted_digit == 10 ) {
+        //} else if ( wanted_digit == 10 ) {
+    //FIXME do use integer/fractionnal_digits arg
+        } else if ( wanted_digit == 5 ) {
             glyph_index = (sign==1?22:1); // for '-' or '+'
         } else if ( wanted_digit > 0 ) {
             glyph_index = debug_decode_int_decimal_fixed(fixed_point[0], wanted_digit-1, 9);
@@ -463,7 +465,7 @@ bool debug_print_float4(in float2 text_coords, in float4 float4_to_decode, in in
         int sign, exp, mant, signi, glyph_index;
         float expf;
         int2 fixed_point;
-        float float_to_decode = float4_to_decode[int(text_coords)-text_offset_line];
+        float float_to_decode = float4_to_decode[int(text_coords.y)-text_offset_line];
         debug_decode_float(float_to_decode, wanted_digit, integer_digits, fractionnal_digits, sign, exp, mant, signi, expf, fixed_point, glyph_index);
         glyph_bit = debug_print_glyph(text_coords, glyph_index);
     }
@@ -567,7 +569,6 @@ int2 get_texture_size(texture2d s) {
 float4 PSEffect(FragData f_in) : TARGET
 {
 	float2 uv = f_in.uv;
-	float4x4 debug = float4x4(f_in.debug1, f_in.debug2, f_in.debug3, f_in.debug4);
     float aspect_ratio = vpixel/upixel;
 
     float4 rgba = image.Sample(textureSampler, uv);
@@ -575,26 +576,19 @@ float4 PSEffect(FragData f_in) : TARGET
     float4 text_color = float4(0.9, 0.2, 0.2, 1.0);
 
     int2 text_offset = int2(0,0);
-    float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.9,0.5), aspect_ratio, font_size, text_offset );
+    float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.52,0.0), aspect_ratio, font_size, text_offset );
 
     int2 texture_size = get_texture_size(image);
-    text_offset = int2(6,0);
-    if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        rgba = debug_print_int_decimal_fixed(text_coords, texture_size.x, 4, 6, 0)?text_color:rgba;
-    }
-    text_offset = int2(0,0);
-    if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
-        rgba = debug_print_int_decimal_fixed(text_coords, texture_size.y, 4, 0, 0)?text_color:rgba;
-    }
+    rgba = debug_print_int_decimal_fixed(text_coords, texture_size.x, 4, 6, 0)?text_color:rgba;
+    rgba = debug_print_int_decimal_fixed(text_coords, texture_size.y, 4, 0, 0)?text_color:rgba;
 
-    text_offset = int2(-1,1);
-    if ( debug_inside_text_box(text_coords, text_offset, 12) ) {
-        rgba = debug_print_float(text_coords, debug[0][0], 4, 6, 5, 1)?text_color:rgba*1.1;
-    }
-    text_offset = int2(-1,2);
-    if ( debug_inside_text_box(text_coords, text_offset, 12) ) {
-        rgba = debug_print_float(text_coords, debug[1][1], 4, 6, 5, 2)?text_color:rgba*1.1;
-    }
+    rgba = debug_print_float4(text_coords, f_in.debug1, 4, 4, 18, 2)?text_color:rgba;
+    rgba = debug_print_float4(text_coords, f_in.debug2, 4, 4,  6, 2)?text_color:rgba;
+    rgba = debug_print_float4(text_coords, f_in.debug3, 4, 4, -6, 2)?text_color:rgba;
+    rgba = debug_print_float4(text_coords, f_in.debug4, 4, 4,-18, 2)?text_color:rgba;
+
+	//float4x4 debug = float4x4(f_in.debug1, f_in.debug2, f_in.debug3, f_in.debug4);
+
     return rgba;
 }
 
