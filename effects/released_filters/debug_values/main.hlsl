@@ -517,9 +517,34 @@ struct VertData {
     float4 pos : POSITION;
 };
 
+struct VertDataOut {
+    float2 uv  : TEXCOORD0;
+	float4 debug1: TEXCOORD1;
+	float4 debug2: TEXCOORD2;
+	float4 debug3: TEXCOORD3;
+	float4 debug4: TEXCOORD4;
+    float4 pos : POSITION;
+};
+
 struct FragData {
     float2 uv  : TEXCOORD0;
+	float4 debug1: TEXCOORD1;
+	float4 debug2: TEXCOORD2;
+	float4 debug3: TEXCOORD3;
+	float4 debug4: TEXCOORD4;
 };
+
+VertDataOut VSDefaultWithViewProjDebugHack(VertData v_in)
+{
+    VertDataOut vert_out;
+    vert_out.uv  = v_in.uv;
+    vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+	vert_out.debug1 = float4(ViewProj[0][0],ViewProj[0][1],ViewProj[0][2],ViewProj[0][3]);
+	vert_out.debug2 = float4(ViewProj[1][0],ViewProj[1][1],ViewProj[1][2],ViewProj[1][3]);
+	vert_out.debug3 = float4(ViewProj[2][0],ViewProj[2][1],ViewProj[2][2],ViewProj[2][3]);
+	vert_out.debug4 = float4(ViewProj[3][0],ViewProj[3][1],ViewProj[3][2],ViewProj[3][3]);
+    return vert_out;
+}
 
 VertData VSDefault(VertData v_in)
 {
@@ -529,72 +554,47 @@ VertData VSDefault(VertData v_in)
     return vert_out;
 }
 
-float4 EffectLinear(float2 uv)
+int2 get_texture_size(texture2d s) {
+#ifdef _OPENGL
+    return textureSize(s,0);
+#else
+    uint width, height, levels;
+    s.GetDimensions(0, width, height, levels);
+    return int2(width, height);
+#endif
+}
+
+float4 PSEffect(FragData f_in) : TARGET
 {
-    float2 uv_pixel_to_debug = (coord_mode==0)?float2(pixel_u,pixel_v):float2(pixel_x*upixel, pixel_y*vpixel);
+	float2 uv = f_in.uv;
+	float4x4 debug = float4x4(f_in.debug1, f_in.debug2, f_in.debug3, f_in.debug4);
     float aspect_ratio = vpixel/upixel;
 
-    float4 rgba_pixel_to_debug = image.Sample(textureSampler, uv_pixel_to_debug);
     float4 rgba = image.Sample(textureSampler, uv);
 
     float4 text_color = float4(0.9, 0.2, 0.2, 1.0);
 
-    int2 text_offset = int2(0,-1);
-    float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.5,0.15), aspect_ratio, font_size, text_offset );
+    int2 text_offset = int2(0,0);
+    float2 text_coords = debug_get_text_coords_from_uv(uv, float2(0.9,0.5), aspect_ratio, font_size, text_offset );
 
-    if ( should_print_grid ) {
-        rgba = debug_print_text_grid(rgba, text_coords, text_offset, -12, 0, 13, 9);
+    int2 texture_size = get_texture_size(image);
+    text_offset = int2(6,0);
+    if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
+        rgba = debug_print_int_decimal_fixed(text_coords, texture_size.x, 4, 6, 0)?text_color:rgba;
+    }
+    text_offset = int2(0,0);
+    if ( debug_inside_text_box(text_coords, text_offset, 6) ) {
+        rgba = debug_print_int_decimal_fixed(text_coords, texture_size.y, 4, 0, 0)?text_color:rgba;
     }
 
-    if ( should_print_font_test ) {
-        text_offset = int2(-11, 0);
-        if ( debug_inside_text_box(text_coords, text_offset, 24) ) {
-            int wanted_digit_font_test = debug_get_wanted_digit_from_text_coords(text_coords, text_offset);
-            int glyph_index_font_test = 23 - wanted_digit_font_test;
-            rgba = debug_print_glyph(text_coords, glyph_index_font_test)?text_color:rgba;
-        }
+    text_offset = int2(-1,1);
+    if ( debug_inside_text_box(text_coords, text_offset, 12) ) {
+        rgba = debug_print_float(text_coords, debug[0][0], 4, 6, 5, 1)?text_color:rgba*1.1;
     }
-
-    // show an input float
-    float float_to_decode = debug_value + time;
-    rgba = debug_print_float(text_coords, float_to_decode, 9, 8, 2, 1)?text_color:rgba;
-
-    // show the RGBA values of rgba_pixel_to_debug scaled on range [0;256[ using a diffreten color on each text line
-    text_color = float4(
-            floor(text_coords.y)==1.0?1.0:0.0,
-            floor(text_coords.y)==2.0?1.0:0.0,
-            floor(text_coords.y)==3.0?1.0:0.0,
-            1.0);
-    rgba = debug_print_float4(text_coords, rgba_pixel_to_debug*255.0, 3, 1, -12, 1)?text_color:rgba;
-
-    // show a fixed value as decimal, hex, binary
-    text_color = float4(0.7, 0.2, 0.7, 1.0);
-    rgba = debug_print_int_decimal_fixed(text_coords, ~int(1.0/0.0), 10, 0, 4)?text_color:rgba;
-    rgba = debug_print_int_hexadecimal_fixed(text_coords, ~int(1.0/0.0), 8, 0, 5)?text_color:rgba;
-    rgba = debug_print_int_binary_fixed(text_coords, ~int(1.0/0.0), 32, -13, 6)?text_color:rgba;
-
-    // show the -inf special case
-    float_to_decode = -1e39;
-    rgba = debug_print_float(text_coords, float_to_decode, 9, 8, 2, 7)?text_color:rgba;
-
-    // show the +nan special case
-    float_to_decode = sqrt(-abs(float_to_decode)); // Should be +nan most of the time
-    rgba = debug_print_float(text_coords, float_to_decode, 9, 8, 2, 8)?text_color:rgba;
-
-    // show the -0.0 special case
-    float_to_decode = -0.0; // Maybe -0.0, and it's a different binary representation than +0.0 but compilers may throw it
-    rgba = debug_print_float(text_coords, float_to_decode, 9, 8, 2, 9)?text_color:rgba;
-
-    return rgba;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-// You probably don't want to change anything from this point.
-
-float4 PSEffect(FragData f_in) : TARGET
-{
-    float4 rgba = EffectLinear(f_in.uv);
+    text_offset = int2(-1,2);
+    if ( debug_inside_text_box(text_coords, text_offset, 12) ) {
+        rgba = debug_print_float(text_coords, debug[1][1], 4, 6, 5, 2)?text_color:rgba*1.1;
+    }
     return rgba;
 }
 
@@ -602,7 +602,7 @@ technique Draw
 {
     pass
     {
-        vertex_shader = VSDefault(v_in);
+        vertex_shader = VSDefaultWithViewProjDebugHack(v_in);
         pixel_shader = PSEffect(f_in);
     }
 }
