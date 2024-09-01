@@ -47,26 +47,26 @@ VertData VSDefault(VertData v_in)
  * Where prime refers to non-linear signals.
  */
 float rgb2lum_rec709(float3 rgb) {
-	 return 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b;
+     return 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b;
 }
 
 float4 EffectLinear(float2 uv)
 {
     // Get current pixel rgb color (+alpha) by sampling the image texture2d at location given by uv
-	float4 rgba = image.Sample(textureSampler, uv);
+    float4 rgba = image.Sample(textureSampler, uv);
 
     // Compute luminance of this color (assuming that we got a non-linear rgb value in [0.0;1.0]³
-	float lum = rgb2lum_rec709(rgba.rgb);
+    float lum = rgb2lum_rec709(rgba.rgb);
 
     // blink will contain original color half of the time, and inverted color the other half
-	float3 blink = fract(time*10.0)>0.5?rgba.rgb:1.0-rgba.rgb;
-	
+    float3 blink = fract(time*10.0)>0.5?rgba.rgb:1.0-rgba.rgb;
+    
     // Replace source image color by blink if the are in the luminance range choosen by the user
-	if ( lum > luma_min && lum < luma_max) {
-		rgba = float4(blink, 1.0);
-	}
+    if ( lum > luma_min && lum < luma_max) {
+        rgba = float4(blink, 1.0);
+    }
 
-	return rgba;
+    return rgba;
 }
 //----------------------------------------------------------------------------------------------------------------------
 
