@@ -40,64 +40,6 @@ VertData VSDefault(VertData v_in)
     return vert_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
-// manual embed includes from (work in progress) shadertastic-lib for now
-
-//#include "../../shadertastic-lib/color_conversion/rgb2xyz.hlsl"
-#ifndef _RGB2XYZ_HLSL
-#define _RGB2XYZ_HLSL
-
-// Function to convert RGB to XYZ
-float3 rgb2xyz(float3 rgb)
-{
-    float3 result;
-    result.r = 0.4124564 * rgb.r + 0.3575761 * rgb.g + 0.1804375 * rgb.b;
-    result.g = 0.2126729 * rgb.r + 0.7151522 * rgb.g + 0.0721750 * rgb.b;
-    result.b = 0.0193339 * rgb.r + 0.1191920 * rgb.g + 0.9503041 * rgb.b;
-    return result;
-}
-
-#endif /* _RGB2XYZ_HLSL */
-//#include "../../shadertastic-lib/color_conversion/xyz2lab.hlsl"
-#ifndef _XYZ2LAB_HLSL
-#define _XYZ2LAB_HLSL
-
-// Function to convert XYZ to Lab*
-float3 xyz2lab(float3 xyz)
-{
-    float3 result;
-    float epsilon = 0.008856;
-    float kappa = 903.3;
-
-    float3 xyzn = float3(0.9505, 1.0, 1.0890); // D50 reference white point
-
-    float3 xyzRatio = xyz / xyzn;
-    float3 fxyz = float3(
-        pow(xyzRatio.x, 1.0 / 3.0),
-        pow(xyzRatio.y, 1.0 / 3.0),
-        pow(xyzRatio.z, 1.0 / 3.0)
-    );
-
-    result.x = 116.0 * fxyz.y - 16.0;
-    result.y = 500.0 * (fxyz.x - fxyz.y);
-    result.z = 200.0 * (fxyz.y - fxyz.z);
-
-    return result;
-}
-
-#endif /* _XYZ2LAB_HLSL */
-//#include "../../shadertastic-lib/color_conversion/rgb2lab.hlsl"
-#ifndef _RGB2LAB_HLSL
-#define _RGB2LAB_HLSL
-
-// Function to convert RGB to Lab*
-float3 rgb2lab(float3 rgb)
-{
-    return xyz2lab(rgb2xyz(rgb));
-}
-
-#endif /* _RGB2LAB_HLSL */
-
-//----------------------------------------------------------------------------------------------------------------------
 
 /*
  * Source: the Y component in BT709: https://www.itu.int/rec/R-REC-BT.709-1-199311-S/en
@@ -110,20 +52,17 @@ float rgb2lum_rec709(float3 rgb) {
 
 float4 EffectLinear(float2 uv)
 {
-    // get current pixel rgb color (+alpha) by sampling the image texture2d at location given by uv
+    // Get current pixel rgb color (+alpha) by sampling the image texture2d at location given by uv
 	float4 rgba = image.Sample(textureSampler, uv);
-    // compute luminance of this color (assuming that we got a non-linear rgb value in [0.0;1.0]³
-	//float3 lab = rgb2lab(rgba.rgb);
-	//float lum = lab[0];
- 
-    // less accurate but simpler compute of the luminance of this color
+
+    // Compute luminance of this color (assuming that we got a non-linear rgb value in [0.0;1.0]³
 	float lum = rgb2lum_rec709(rgba.rgb);
-	
-    // blink will containt original orinal half of the time, and inverted color the other half
+
+    // blink will contain original color half of the time, and inverted color the other half
 	float3 blink = fract(time*10.0)>0.5?rgba.rgb:1.0-rgba.rgb;
 	
     // Replace source image color by blink if the are in the luminance range choosen by the user
-	if ( lum * 100.0 > luma_min && lum * 100.0 < luma_max) {
+	if ( lum > luma_min && lum < luma_max) {
 		rgba = float4(blink, 1.0);
 	}
 
