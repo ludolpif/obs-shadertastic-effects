@@ -1,0 +1,77 @@
+{
+  "label": "Easing functions demo",
+  "steps": 1,
+  "input_time": true,
+  "parameters": [
+    {
+      "name": "info",
+      "value": "Easing functions helps to animate. Names and definitions are from https://easings.net/.",
+      "type": "text"
+    },
+    {
+      "name": "reverse",
+      "label": "Reverse animation (from 1.0 to 0.0)",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "name": "wanted_ease_func",
+      "label": "Easing function",
+      "type": "list_int",
+      "values": [
+        {"label": "linear", "value": 0},
+        {"label": "easeInSine", "value": 1},
+        {"label": "easeOutSine", "value": 2},
+        {"label": "easeInOutSine", "value": 3},
+        {"label": "easeInQuad", "value": 4},
+        {"label": "easeOutQuad", "value": 5},
+        {"label": "easeInOutQuad", "value": 6},
+        {"label": "easeInCubic", "value": 7},
+        {"label": "easeOutCubic", "value": 8}
+      ],
+      "default": 0
+    },
+    {
+      "name": "wanted_ease_func",
+      "label": "Easing function",
+      "type": "list_int",
+      "values": [
+        {"label": "linear", "value": 0},
+        {"label": "easeInSine", "value": 1},
+        {"label": "easeOutSine", "value": 2}
+      ],
+      "default": 0
+    },
+    {
+      "name": "wanted_ease_func",
+      "label": "Easing function",
+      "type": "list_int",
+      "values": [
+        {"label": "linear", "value": 0},
+        {"label": "easeInSine", "value": 1},
+        {"label": "easeOutSine", "value": 2}
+      ],
+      "default": 0
+    },
+    {
+      "name": "wanted_visual_test",
+      "label": "Visual test",
+      "type": "list_int",
+      "values": [
+        {"label": "sizes", "value": 0},
+        {"label": "positions", "value": 1},
+        {"label": "transparencies", "value": 2}
+      ],
+      "default": 0
+    },
+    {
+      "name": "porch",
+      "label": "Delay (before and after)",
+      "type": "double",
+      "slider": true,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.5
+    }
+  ]
+}
