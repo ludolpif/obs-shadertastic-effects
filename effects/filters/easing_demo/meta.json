@@ -9,72 +9,6 @@
       "type": "text"
     },
     {
-      "name": "reverse",
-      "label": "Reverse animation (from 1.0 to 0.0)",
-      "type": "bool",
-      "default": false
-    },
-    {
-      "name": "wanted_ease_func",
-      "label": "Easing function",
-      "type": "list_int",
-      "values": [
-        {"label": "linear", "value": 0},
-        {"label": "easeInSine", "value": 1},
-        {"label": "easeOutSine", "value": 2},
-        {"label": "easeInOutSine", "value": 3},
-        {"label": "easeInQuad", "value": 4},
-        {"label": "easeOutQuad", "value": 5},
-        {"label": "easeInOutQuad", "value": 6},
-        {"label": "easeInCubic", "value": 7},
-        {"label": "easeOutCubic", "value": 8},
-        {"label": "easeInQuart", "value": 9},
-        {"label": "easeOutQuart", "value": 10},
-        {"label": "easeInOutQuart", "value": 11},
-        {"label": "easeInQuint", "value": 12},
-        {"label": "easeOutQuint", "value": 13},
-        {"label": "easeInOutQuint", "value": 14},
-        {"label": "easeInExpo", "value": 15},
-        {"label": "easeOutExpo", "value": 16},
-        {"label": "easeInOutExpo", "value": 17},
-        {"label": "easeInCirc", "value": 18},
-        {"label": "easeOutCirc", "value": 19},
-        {"label": "easeInOutCirc", "value": 20},
-        {"label": "easeInBack", "value": 21},
-        {"label": "easeOutBack", "value": 22},
-        {"label": "easeInOutBack", "value": 23},
-        {"label": "easeInElastic", "value": 24},
-        {"label": "easeOutElastic", "value": 25},
-        {"label": "easeInOutElastic", "value": 26},
-        {"label": "easeInBounce", "value": 27},
-        {"label": "easeOutBounce", "value": 28},
-        {"label": "easeInOutBounce", "value": 29}
-      ],
-      "default": 0
-    },
-    {
-      "name": "wanted_ease_func",
-      "label": "Easing function",
-      "type": "list_int",
-      "values": [
-        {"label": "linear", "value": 0},
-        {"label": "easeInSine", "value": 1},
-        {"label": "easeOutSine", "value": 2}
-      ],
-      "default": 0
-    },
-    {
-      "name": "wanted_ease_func",
-      "label": "Easing function",
-      "type": "list_int",
-      "values": [
-        {"label": "linear", "value": 0},
-        {"label": "easeInSine", "value": 1},
-        {"label": "easeOutSine", "value": 2}
-      ],
-      "default": 0
-    },
-    {
       "name": "wanted_visual_test",
       "label": "Visual test",
       "type": "list_int",
@@ -84,6 +18,41 @@
         {"label": "transparencies", "value": 2}
       ],
       "default": 0
+    },
+    {
+      "name": "wanted_ease_kind",
+      "label": "Easing function kind",
+      "type": "list_int",
+      "values": [
+        {"label": "In", "value": 0},
+        {"label": "Out", "value": 1},
+        {"label": "InOut", "value": 2}
+      ]
+    },
+    {
+      "name": "wanted_ease_func",
+      "label": "Easing function",
+      "type": "list_int",
+      "values": [
+        {"label": "linear", "value": 0},
+        {"label": "ease*Sine", "value": 1},
+        {"label": "ease*Quad", "value": 4},
+        {"label": "ease*Cubic", "value": 7},
+        {"label": "ease*Quart", "value": 10},
+        {"label": "ease*Quint", "value": 13},
+        {"label": "ease*Expo", "value": 16},
+        {"label": "ease*Circ", "value": 19},
+        {"label": "ease*Back", "value": 22},
+        {"label": "ease*Elastic", "value": 25},
+        {"label": "ease*Bounce", "value": 28}
+      ],
+      "default": 0
+    },
+    {
+      "name": "reverse",
+      "label": "Reverse animation (t goes from 1.0 to 0.0)",
+      "type": "bool",
+      "default": false
     },
     {
       "name": "porch",
