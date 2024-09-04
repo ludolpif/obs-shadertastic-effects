@@ -60,19 +60,20 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 #endif /* _INSIDE_BOX_HLSL */
 
 #define PI  3.14159265359
-#define TAU 6.28318530718
+//#define TAU 6.28318530718
 #define PI_HALF 1.5707963268
 
 float ease_in_sine(float x) {
-    return 1.0 - cos(PI_HALF*x); // FIXME make less dumb maths
+    return 1.0 - cos(PI_HALF*x);
 }
 float ease_out_sine(float x) {
     return sin(PI_HALF*x);
 }
 float ease_in_out_sine(float x) {
-    return (1.0 - cos(PI*x)) / 2.0; // FIXME make less dumb maths
+    return (1.0 - cos(PI*x)) / 2.0;
 }
 float ease_in_quad(float x) {
+    //note: pow(x, 2.0) is not defined for x<0.0 as per specification. x*x is always defined.
     return x*x;
 }
 float ease_out_quad(float x) {
@@ -80,15 +81,108 @@ float ease_out_quad(float x) {
     return 1.0-w*w;
 }
 float ease_in_out_quad(float x) {
-    //return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
-    return 0.5; // FIXME make less dumb maths
+    return x<0.5?ease_in_quad(2.0*x):ease_out_quad(2.0*x);
 }
 float ease_in_cubic(float x) {
-    return x*x*x;
+    float x2=x*x;
+    return x2*x;
 }
 float ease_out_cubic(float x) {
     float w = 1.0-x;
-    return 1.0-w*w*w;
+    float w2 = w*w;
+    return 1.0-w2*w;
+}
+float ease_in_out_cubic(float x) {
+    return x<0.5?ease_in_cubic(2.0*x):ease_out_cubic(2.0*x);
+}
+float ease_in_quart(float x) {
+    float x2=x*x;
+    return x2*x2;
+}
+float ease_out_quart(float x) {
+    float w = 1.0-x;
+    float w2 = w*w;
+    return 1.0-w2*w2;
+}
+float ease_in_out_quart(float x) {
+    return x<0.5?ease_in_quart(2.0*x):ease_out_quart(2.0*x);
+}
+float ease_in_quint(float x) {
+    float x2=x*x;
+    return x2*x2*x;
+}
+float ease_out_quint(float x) {
+    float w = 1.0-x;
+    float w2 = w*w;
+    return 1.0-w2*w2*w;
+}
+float ease_in_out_quint(float x) {
+    return x<0.5?ease_in_quint(2.0*x):ease_out_quint(2.0*x);
+}
+float ease_in_expo(float x) {
+    float w = 1.0-x;
+    float p = -10.0*w;
+    return x==0.0?0.0:pow(2.0, p);
+}
+float ease_out_expo(float x) {
+    float p = -10.0*x;
+    return x==1.0?0.0:pow(2.0, p);
+    //note: wrong edge value seen 2024-09-04 on https://easings.net/#easeOutExpo 
+}
+float ease_in_out_expo(float x) {
+    return x<0.5?ease_in_expo(2.0*x):ease_out_expo(2.0*x);
+}
+float ease_in_circ(float x) {
+    float xcl = clamp(x,0.0,1.0);
+    return 1.0-sqrt(1.0-xcl*xcl);
+}
+float ease_out_circ(float x) {
+    float xcl = clamp(x,0.0,1.0);
+    float w = 1.0-xcl;
+    return sqrt(1.0 - w*w);
+}
+float ease_in_out_circ(float x) {
+    return x<0.5?ease_in_circ(2.0*x):ease_out_circ(2.0*x);
+}
+float ease_in_back(float x) {
+    float x2 = x*x;
+    float x3 = x2*x;
+    return 2.70158*x3 - 1.70158*x2;
+}
+float ease_out_back(float x) {
+    float w = 1.0-x;
+    float w2 = w*w;
+    float w3 = w2*w;
+    return 1.0 - (2.70158*w3 - 1.70158*w2);
+}
+float ease_in_out_back(float x) {
+    return x<0.5?ease_in_back(2.0*x):ease_out_back(2.0*x);
+}
+//note: PI*(2/3) as float is 2.09439510239
+float ease_in_elastic(float x) {
+    float w = 1.0-x;
+    float p = -10.0*w;
+    //TODO find sin symmetry to simplify
+    return x==0.0?0.0:x==1.0?1.0:
+       -pow(2.0, p) * sin((x * 10 - 10.75) * 2.09439510239);
+}
+float ease_out_elastic(float x) {
+    float p = -10.0*x;
+    return x==0.0?0.0:x==1.0?1.0:
+        pow(2.0, p) * sin((x * 10 - 0.75) * 2.09439510239) + 1.0;
+}
+float ease_in_out_elastic(float x) {
+    return x<0.5?ease_in_elastic(2.0*x):ease_out_elastic(2.0*x);
+}
+float ease_in_bounce(float x) {
+    return 0.5; //TODO
+}
+float ease_out_bounce(float x) {
+    float w = 1.0-x;
+    return 0.5; //TODO
+}
+float ease_in_out_bounce(float x) {
+    return x<0.5?ease_in_bounce(2.0*x):ease_out_bounce(2.0*x);
 }
 
 float4 visual_test(float2 uv, float4 rgba, float ez) {
@@ -140,6 +234,27 @@ float4 EffectLinear(float2 uv)
         else if ( wanted_ease_func == 6 ) { ez = ease_in_out_quad(t); }
         else if ( wanted_ease_func == 7 ) { ez = ease_in_cubic(t); }
         else if ( wanted_ease_func == 8 ) { ez = ease_out_cubic(t); }
+        else if ( wanted_ease_func == 9 ) { ez = ease_in_quart(t); }
+        else if ( wanted_ease_func == 10 ) { ez = ease_out_quart(t); }
+        else if ( wanted_ease_func == 11 ) { ez = ease_in_out_quart(t); }
+        else if ( wanted_ease_func == 12 ) { ez = ease_in_quint(t); }
+        else if ( wanted_ease_func == 13 ) { ez = ease_out_quint(t); }
+        else if ( wanted_ease_func == 14 ) { ez = ease_in_out_quint(t); }
+        else if ( wanted_ease_func == 15 ) { ez = ease_in_expo(t); }
+        else if ( wanted_ease_func == 16 ) { ez = ease_out_expo(t); }
+        else if ( wanted_ease_func == 17 ) { ez = ease_in_out_expo(t); }
+        else if ( wanted_ease_func == 18 ) { ez = ease_in_circ(t); }
+        else if ( wanted_ease_func == 19 ) { ez = ease_out_circ(t); }
+        else if ( wanted_ease_func == 20 ) { ez = ease_in_out_circ(t); }
+        else if ( wanted_ease_func == 21 ) { ez = ease_in_back(t); }
+        else if ( wanted_ease_func == 22 ) { ez = ease_out_back(t); }
+        else if ( wanted_ease_func == 23 ) { ez = ease_in_out_back(t); }
+        else if ( wanted_ease_func == 24 ) { ez = ease_in_elastic(t); }
+        else if ( wanted_ease_func == 25 ) { ez = ease_out_elastic(t); }
+        else if ( wanted_ease_func == 26 ) { ez = ease_in_out_elastic(t); }
+        else if ( wanted_ease_func == 27 ) { ez = ease_in_bounce(t); }
+        else if ( wanted_ease_func == 28 ) { ez = ease_out_bounce(t); }
+        else if ( wanted_ease_func == 29 ) { ez = ease_in_out_bounce(t); }
         else { ez = t; }
         // Demonstrate the easing function 
         rgba = visual_test(uv_split, rgba, ez);
