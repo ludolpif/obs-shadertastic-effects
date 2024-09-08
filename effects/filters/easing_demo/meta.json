@@ -55,13 +55,22 @@
       "default": false
     },
     {
+      "name": "curve_ratio",
+      "label": "Curve size",
+      "type": "double",
+      "slider": true,
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.4
+    },
+    {
       "name": "porch",
       "label": "Delay (before and after)",
       "type": "double",
       "slider": true,
       "min": 0.0,
       "max": 1.0,
-      "default": 0.5
+      "default": 0.3
     }
   ]
 }
