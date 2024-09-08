@@ -20,6 +20,25 @@
       "default": 0
     },
     {
+      "name": "wanted_ease_func",
+      "label": "Easing function",
+      "type": "list_int",
+      "values": [
+        {"label": "linear", "value": 0},
+        {"label": "Sine", "value": 1},
+        {"label": "Quad", "value": 4},
+        {"label": "Cubic", "value": 7},
+        {"label": "Quart", "value": 10},
+        {"label": "Quint", "value": 13},
+        {"label": "Expo", "value": 16},
+        {"label": "Circ", "value": 19},
+        {"label": "Back", "value": 22},
+        {"label": "Elastic", "value": 25},
+        {"label": "Bounce", "value": 28}
+      ],
+      "default": 0
+    },
+    {
       "name": "wanted_ease_kind",
       "label": "Easing function kind",
       "type": "list_int",
@@ -28,25 +47,6 @@
         {"label": "Out", "value": 1},
         {"label": "InOut", "value": 2}
       ]
-    },
-    {
-      "name": "wanted_ease_func",
-      "label": "Easing function",
-      "type": "list_int",
-      "values": [
-        {"label": "linear", "value": 0},
-        {"label": "ease*Sine", "value": 1},
-        {"label": "ease*Quad", "value": 4},
-        {"label": "ease*Cubic", "value": 7},
-        {"label": "ease*Quart", "value": 10},
-        {"label": "ease*Quint", "value": 13},
-        {"label": "ease*Expo", "value": 16},
-        {"label": "ease*Circ", "value": 19},
-        {"label": "ease*Back", "value": 22},
-        {"label": "ease*Elastic", "value": 25},
-        {"label": "ease*Bounce", "value": 28}
-      ],
-      "default": 0
     },
     {
       "name": "reverse",
