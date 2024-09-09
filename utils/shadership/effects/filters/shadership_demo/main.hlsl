@@ -1,3 +1,6 @@
 // Hello
-#include "../../shadertastic-lib/color-conversion/rgb2xyz.hlsl"
+#ifndef _SOMETHING
+#define _SOMETHING
+#endif /* _SOMETHING */
+#include "../../shadertastic-lib/color_conversion/rgb2xyz.hlsl"
 /* world from main.hlsl */

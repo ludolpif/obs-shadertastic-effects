@@ -14,27 +14,40 @@ startrule:
 section:
     include
     {
-        std::cout << "preproc include: " << d_scanner.matched() << '\n';
-        /* FIXME I don't really catch how to use the Scanner API here
-        d_scanner.pushStream(d_scanner.in());
-        d_scanner.pushStream("path-to-new-file.hlsl");
-        d_scanner.popStream();
-        */
+        //std::cout << " include: " << d_scanner.matched() << std::endl;
+        d_scanner.include(d_scanner.decode_string());
     }
 |
     define
     {
-        std::cout << "define : " << d_scanner.matched() << '\n';
+        //std::cout << "define : " << d_scanner.matched() << std::endl;
+        d_scanner.pp_defined_symbols.insert(d_scanner.matched());
     }
 |
     undef
     {
-        std::cout << "undef : " << d_scanner.matched() << '\n';
+        //std::cout << "undef : " << d_scanner.matched() << std::endl;
+        d_scanner.pp_defined_symbols.erase(d_scanner.matched());
+    }
+| 
+    ifdef
+    {
+        //std::cout << "ifdef : " << d_scanner.matched() << std::endl;
+    }
+| 
+    ifndef
+    {
+        //std::cout << "ifndef : " << d_scanner.matched() << std::endl;
+    }
+| 
+    PP_ENDIF
+    {
+        //std::cout << "endif" << std::endl;
     }
 | 
     content
     {
-        std::cout << "pass: " << d_scanner.matched() << '\n';
+        std::cout << d_scanner.matched();
     }
 ;
 
@@ -56,16 +69,24 @@ undef:
     PP_UNDEF WS IDENTIFIER
 ;
 
+ifdef:
+    PP_IFDEF IDENTIFIER
+|
+    PP_IFDEF WS IDENTIFIER
+;
+
+ifndef:
+    PP_IFNDEF IDENTIFIER
+|
+    PP_IFNDEF WS IDENTIFIER
+;
+
 content:
     COMMENT
 |
     STRING
 |
-    PP_IFDEF
-|
-    PP_IFNDEF
-|
-    PP_ENDIF
+    IDENTIFIER
 |
     PP_OTHER
 |

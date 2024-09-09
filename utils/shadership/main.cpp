@@ -128,6 +128,12 @@ int main(int argc, char* argv[]) {
 
     input_stream.close();
 
+    const Scanner &scanner = parser.getScanner();
+    std::cout << "List of defined preprocessor symbols at parsing end:" << std::endl;
+    for (std::string symbol : scanner.pp_defined_symbols) {
+        std::cout << symbol << std::endl;
+    }
+
     return res;
 }
 

@@ -5,7 +5,8 @@
 
 // $insert baseclass_h
 #include "Scannerbase.h"
-
+#include <fstream>
+#include <set>
 
 // $insert classHead
 class Scanner: public ScannerBase
@@ -27,11 +28,27 @@ class Scanner: public ScannerBase
             NL,
             CHAR
         };
+        std::set<std::string> pp_defined_symbols;
 
         explicit Scanner(std::istream &in = std::cin, std::ostream &out = std::cout, bool keepCwd = true);
 
         Scanner(std::string const &infile, std::string const &outfile, bool keepCwd = true);
         
+        void include(std::string const &infile) {
+            std::ifstream ifs(infile);
+            if (!ifs.good()) {
+                std::cerr << "Can't open or read included file: \"" << infile << "\"" << std::endl; 
+                std::cerr << "Current directory is: " << this->cwd() << std::endl;
+                //FIXME proper error handling
+            } else {
+                //XXX closing ?
+                this->pushStream(infile);
+            }
+        }
+        std::string decode_string() {
+            // XXX there is more to do than stripping the double-quotes
+            return this->matched().substr(1, this->length() - 2);
+        }
         // $insert lexFunctionDecl
         int lex();
 

@@ -18,6 +18,7 @@ class Parser: public ParserBase
         Parser(std::istream &in, std::ostream &out = std::cout) {
            d_scanner.switchStreams(in, out);
         }
+        const Scanner& getScanner() { return d_scanner; } 
         int parse();
 
     private:
