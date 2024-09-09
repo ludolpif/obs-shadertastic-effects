@@ -64,29 +64,29 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 #define PI  3.14159265359
 #define PI_HALF 1.5707963268
 
-float4 draw_curve(float2 uv, float f_u, float4 color) {
-    float u = uv.x;
-    float v = uv.y;
-    if (f_u-5*upixel/curve_ratio/2.0 <= (1.0-v) && (1.0-v) <= f_u+5*upixel/curve_ratio/2.0) {
+bool inside_1d(float value, float target, float radius) {
+    return ( value - target >= -radius ) && ( value - target <= radius );
+}
+float4 draw_curve(float2 uv, float f, float4 color) {
+    float x = uv[0];
+    float y = 1.0-uv[1];
+    float u_px = 2.0*upixel/curve_ratio;
+    float v_px = 2.0*vpixel/curve_ratio;
+
+    if ( inside_1d(f, y, u_px*3.0) ) {
+        // color'ed curve
         return color;
     }
-    if (0.5-upixel/curve_ratio <= u && u <= 0.5+upixel/curve_ratio) {
+    if ( inside_1d(x, 0.5, u_px) || inside_1d(y, 0.5, v_px ) ) {
+        // black center lines
         return float4(0.0, 0.0, 0.0, 1.0);
     }
-    if (0.5-vpixel/curve_ratio <= v && v <= 0.5+vpixel/curve_ratio) {
-        return float4(0.0, 0.0, 0.0, 1.0);
+    if ( inside_1d(frac(x*10.0), 0.0, u_px*10.0) || inside_1d(frac(y*10.0), 0.0, v_px*10.0 ) ) {
+        // gray grid lines
+        return float4(0.3, 0.3, 0.3, 1.0);
     }
-    for (float k=0.0; k <= 1.0; k += 0.1) {
-        if (k-upixel/curve_ratio <= u && u <= k+upixel/curve_ratio) {
-            return float4(0.3, 0.3, 0.3, 1.0);
-        }
-    }
-    for (float k=0.0; k <= 1.0; k += 0.1) {
-        if (k-upixel/curve_ratio <= v && v <= k+upixel/curve_ratio) {
-            return float4(0.3, 0.3, 0.3, 1.0);
-        }
-    }
-    if (abs(uv.x - (1.0-uv.y)) < max(upixel, vpixel)/curve_ratio) {
+    if ( inside_1d(x, y, u_px) ) {
+        // green y = x linear/identity function
         return float4(0.1, 0.6, 0.2, 1.0);
     }
     return float4(1.0, 1.0, 1.0, 0.38);
