@@ -8,8 +8,6 @@
 // $insert scanner.h
 #include "../scanner/Scanner.h"
 
-
-
 class Parser: public ParserBase
 {
     // $insert scannerobject
@@ -17,7 +15,9 @@ class Parser: public ParserBase
         
     public:
         Parser() = default;
-        //Parser(const Scanner &s):d_scanner(s) {} //FIXME deleted copy constructor in ScannerBase
+        Parser(std::istream &in, std::ostream &out = std::cout) {
+           d_scanner.switchStreams(in, out);
+        }
         int parse();
 
     private:

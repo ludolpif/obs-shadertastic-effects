@@ -15,6 +15,11 @@ section:
     include
     {
         std::cout << "preproc include: " << d_scanner.matched() << '\n';
+        /* FIXME I don't really catch how to use the Scanner API here
+        d_scanner.pushStream(d_scanner.in());
+        d_scanner.pushStream("path-to-new-file.hlsl");
+        d_scanner.popStream();
+        */
     }
 |
     define

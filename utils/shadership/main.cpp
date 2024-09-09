@@ -123,8 +123,7 @@ int main(int argc, char* argv[]) {
         return res;
     }
     // XXX output to stdout for now (waiting libzip integration)
-    Scanner scanner(input_stream, std::cout);
-    Parser parser/*(scanner)*/; //FIXME deleted copy constructors ?
+    Parser parser(input_stream, std::cout);
     res = parser.parse();
 
     input_stream.close();
