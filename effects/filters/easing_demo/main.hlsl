@@ -73,12 +73,13 @@ float4 draw_curve(float2 uv, float f, float4 color) {
     float u_px = 2.0*upixel/curve_ratio;
     float v_px = 2.0*vpixel/curve_ratio;
 
+    // Conditions are sorted from foreground to background
     if ( inside_1d(f, y, u_px*3.0) ) {
-        // color'ed curve
+        // color'ed f function curve
         return color;
     }
     if ( inside_1d(x, 0.5, u_px) || inside_1d(y, 0.5, v_px ) ) {
-        // black center lines
+        // black center lines (at x==0.5 or y==0.5, not at origin)
         return float4(0.0, 0.0, 0.0, 1.0);
     }
     if ( inside_1d(frac(x*10.0), 0.0, u_px*10.0) || inside_1d(frac(y*10.0), 0.0, v_px*10.0 ) ) {
@@ -89,6 +90,7 @@ float4 draw_curve(float2 uv, float f, float4 color) {
         // green y = x linear/identity function
         return float4(0.1, 0.6, 0.2, 1.0);
     }
+    // Semi-transparent white graph background
     return float4(1.0, 1.0, 1.0, 0.38);
 }
 
@@ -312,16 +314,14 @@ float4 EffectLinear(float2 uv)
         rgba = visual_test(fmod(uv_split,1.0), rgba, t);
     }
 
+    // Display the curve graph in a semi-transparent fashion
     if (uv.x > (1-curve_ratio) && uv.y > (1-curve_ratio)) {
         float2 uv_small = (uv - (1-curve_ratio)) / curve_ratio;
         float ez2 = apply_easing(uv_small.x);
 
         float4 curve_px = draw_curve(uv_small, ez2, float4(0.1, 0.2, 0.8, 1.0));
-        rgba.xyz = lerp(
-            rgba.xyz,
-            curve_px.xyz,
-            curve_px.w
-        );
+        // (alpha crudely blended, not in linear space, not important for this use case)
+        rgba.xyz = lerp( rgba.rgb, curve_px.rgb, curve_px.a );
     }
 
     return rgba;
