@@ -34,7 +34,8 @@
         {"label": "Circ", "value": 19},
         {"label": "Back", "value": 22},
         {"label": "Elastic", "value": 25},
-        {"label": "Bounce", "value": 28}
+        {"label": "Bounce", "value": 28},
+        {"label": "Bezier-demo1", "value": 31}
       ],
       "default": 0
     },

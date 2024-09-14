@@ -64,8 +64,8 @@ bool inside_box(float2 v, float2 left_top, float2 right_bottom) {
 #define PI  3.14159265359
 #define PI_HALF 1.5707963268
 
-bool inside_1d(float value, float target, float radius) {
-    return ( value - target >= -radius ) && ( value - target <= radius );
+bool inside_1d(float v, float target, float radius) {
+    return ( v - target >= -radius ) && ( v - target <= radius );
 }
 float4 draw_curve(float2 uv, float f, float4 color) {
     float x = uv[0];
@@ -221,6 +221,50 @@ float ease_in_out_bounce(float x) {
     return x<0.5 ? 0.5 * ease_in_bounce(2.0*x) : 0.5 * ease_out_bounce(2.0*x-1.0) + 0.5;
 }
 
+float2 bezier_quartic_2d(float2 p0, float2 p1, float2 p2, float s) {
+    float2 p01 = lerp(p0,p1,s);
+    float2 p12 = lerp(p1,p2,s);
+    return lerp(p01,p12,s);
+}
+float2 bezier_cubic_2d(float2 p0, float2 p1, float2 p2, float2 p3, float s) {
+    float2 p01 = lerp(p0,p1,s);
+    float2 p12 = lerp(p1,p2,s);
+    float2 p23 = lerp(p2,p3,s);
+    float2 p012 = lerp(p01,p12,s);
+    float2 p123 = lerp(p12,p23,s);
+    return lerp(p012,p123,s);
+}
+float2 bezier_quadratic_2d(float2 p0, float2 p1, float2 p2, float2 p3, float2 p4, float s) {
+    float2 p01 = lerp(p0,p1,s);
+    float2 p12 = lerp(p1,p2,s);
+    float2 p23 = lerp(p2,p3,s);
+    float2 p34 = lerp(p3,p4,s);
+    float2 p012 = lerp(p01,p12,s);
+    float2 p123 = lerp(p12,p23,s);
+    float2 p234 = lerp(p23,p34,s);
+    float2 p0123 = lerp(p012,p123,s);
+    float2 p1234 = lerp(p123,p234,s);
+    return lerp(p0123,p1234,s);
+}
+float ease_out_bezier_demo1(float x) {
+    float2 p0 = float2(0,0);
+    float2 p1 = float2(0,1);
+    float2 p2 = float2(0.3,1);
+    float2 p3 = float2(0.7,0);
+    float2 p4 = float2(1,1);
+    float2 b = bezier_quadratic_2d(p0,p1,p2,p3,p4,x);
+    //note: throwing b[0] is not mathematically satisfying but it seems enough to get a fairly customizable curve
+    // bezier function here map 1d to 2d coordinates uv = b(t) while easing functions are traditionnally 1d to 1d
+    return b[1];
+}
+float ease_in_bezier_demo1(float x) {
+    float w = 1.0-x;
+    return 1.0 - ease_out_bezier_demo1(w);
+}
+float ease_in_out_bezier_demo1(float x) {
+    return x<0.5 ? 0.5 * ease_in_bezier_demo1(2.0*x) : 0.5 * ease_out_bezier_demo1(2.0*x-1.0) + 0.5;
+}
+
 float4 visual_test(float2 uv, float4 rgba, float ez) {
     // Animate the output
     bool inside = false;
@@ -277,6 +321,9 @@ float apply_easing(float t) {
     else if ( ease_func_id == 28 ) { ez = ease_in_bounce(t); }
     else if ( ease_func_id == 29 ) { ez = ease_out_bounce(t); }
     else if ( ease_func_id == 30 ) { ez = ease_in_out_bounce(t); }
+    else if ( ease_func_id == 31 ) { ez = ease_in_bezier_demo1(t); }
+    else if ( ease_func_id == 32 ) { ez = ease_out_bezier_demo1(t); }
+    else if ( ease_func_id == 33 ) { ez = ease_in_out_bezier_demo1(t); }
     else { ez = t; }
 
     return ez;
