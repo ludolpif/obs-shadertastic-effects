@@ -2,6 +2,32 @@
   "label": "Simple Shapes",
   "parameters": [
     {
+      "name": "should_be_squared",
+      "label": "Preserve shape 1:1 ratio",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "shape_kind",
+      "label": "Shape kind",
+      "type": "list_int",
+      "values": [
+        {"label": "Circle", "value": 1},
+        {"label": "Polygon", "value": 2}
+      ],
+      "default": 1
+    },
+    {
+      "name": "shape_nsides",
+      "label": "Shape number of sides",
+      "type": "float",
+      "slider": true,
+      "min": 3.0,
+      "max": 16.0,
+      "step": 1.0,
+      "default": 4.0
+    },
+    {
       "name": "shape_width",
       "label": "Shape width",
       "type": "double",
@@ -12,34 +38,50 @@
       "default": 1.0
     },
     {
+      "name": "shape_rotate",
+      "label": "Shape rotation",
+      "type": "double",
+      "slider": true,
+      "min": -1.0,
+      "max": 1.0,
+      "step": 0.01,
+      "default": 0.0
+    },
+    {
+      "name": "shape_smoothness",
+      "label": "Shape smoothness",
+      "type": "double",
+      "slider": true,
+      "min": 0.0,
+      "max": 32.0,
+      "step": 0.5,
+      "default": 2.0
+    },
+    {
+      "name": "smooth_inside",
+      "label": "Smooth inside shape",
+      "type": "bool",
+      "default": true
+    },
+    {
       "name": "shape_center_u",
       "label": "Shape center (horizontal)",
       "type": "double",
       "slider": true,
-      "min": 0.0,
-      "max": 1.0,
+      "min": -2.0,
+      "max": 2.0,
       "step": 0.01,
-      "default": 0.5
+      "default": 0.0
     },
     {
       "name": "shape_center_v",
       "label": "Shape center (vertical)",
       "type": "double",
       "slider": true,
-      "min": 0.0,
-      "max": 1.0,
+      "min": -2.0,
+      "max": 2.0,
       "step": 0.01,
-      "default": 0.5
-    },
-    {
-      "name": "shape_kind",
-      "label": "Shape kind",
-      "type": "list_int",
-      "values": [
-        {"label": "Circle", "value": 1},
-        {"label": "Square", "value": 2}
-      ],
-      "default": 1
+      "default": 0.0
     }
   ]
 }
