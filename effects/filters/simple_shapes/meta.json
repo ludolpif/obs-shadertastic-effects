@@ -1,9 +1,11 @@
 {
   "label": "Simple Shapes",
+  "revision": 1,
+  "input_time": true,
   "parameters": [
     {
-      "name": "should_be_squared",
-      "label": "Preserve shape 1:1 ratio",
+      "name": "clockwise_rotation",
+      "label": "Clockwise rotation",
       "type": "bool",
       "default": true
     },
@@ -12,8 +14,9 @@
       "label": "Shape kind",
       "type": "list_int",
       "values": [
-        {"label": "Circle", "value": 1},
-        {"label": "Polygon", "value": 2}
+        {"label": "Polygon", "value": 1},
+        {"label": "Circle", "value": 2},
+        {"label": "Flowers", "value": 3}
       ],
       "default": 1
     },
@@ -28,6 +31,12 @@
       "default": 4.0
     },
     {
+      "name": "should_be_squared",
+      "label": "Preserve shape 1:1 ratio",
+      "type": "bool",
+      "default": true
+    },
+    {
       "name": "shape_width",
       "label": "Shape width",
       "type": "double",
@@ -35,11 +44,11 @@
       "min": 0.01,
       "max": 2.0,
       "step": 0.01,
-      "default": 1.0
+      "default": 0.4
     },
     {
       "name": "shape_rotate",
-      "label": "Shape rotation",
+      "label": "Shape initial rotation",
       "type": "double",
       "slider": true,
       "min": -1.0,

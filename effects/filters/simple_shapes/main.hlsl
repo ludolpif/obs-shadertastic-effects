@@ -10,9 +10,10 @@ uniform int current_step;      // index of current step (for multistep effects)
 */
 
 // Specific parameters of the shader. They must be defined in the meta.json file next to this one.
-uniform bool should_be_squared;
+uniform bool clockwise_rotation;
 uniform int shape_kind;
 uniform float shape_nsides;
+uniform bool should_be_squared;
 uniform float shape_width;
 uniform float shape_rotate;
 uniform float shape_smoothness;
@@ -85,24 +86,21 @@ float4 EffectLinear(float2 uv)
 
     float4 rgba = image.Sample(textureSampler, uv);
     float d = 0;
-    if ( shape_kind == 1 ) {
-        /* Circle */
-        d = distance(uv_centered, shape_center);
-        /* dst : used to compare the currently processed pixel distance from the circle center and the circle diameter
-         *   considering an inner margin to let room to smoothing 
-        float compare_distance = distance(uv_centered, shape_center);
-        compare_distance -= (shape_width-2.0*vpixel)*aspect_ratio/2.0;
-        compare_distance /= upixel; // converts dst from [0;1] to [0;image width in pixels]
-        rgba.a = 1.0 - clamp(compare_distance, 0.0, 1.0);*/
-    } else if ( shape_kind == 2 ) {
-        /* regular polygon with N faces, from https://thebookofshaders.com/07/ */
-        //FIXME take shape_width into account, uniformise antialiasing (tunable smoothstep everywhere ?)
-        // Remap the space to -1. to 1.
+    if ( shape_kind == 1 /* Polygon */ ) {
+        // Regular polygon with N faces, from https://thebookofshaders.com/07/
         // Angle and radius from the current pixel
-        float a = atan2(uv_centered[0], uv_centered[1]) + M_PI + M_PI_3*shape_rotate ;
+        float a = atan2(uv_centered[0], uv_centered[1]) + M_PI*(1.0 + time*(clockwise_rotation?1.0:-1.0)) + M_PI_3*shape_rotate;
         float r = M_TWOPI/shape_nsides;
         // Shaping function that modulate the distance
         d = cos(floor(.5+a/r)*r - a) * length(uv_centered);
+    } else if ( shape_kind == 2 /* Circle */) {
+        d = distance(uv_centered, shape_center);
+    } else if ( shape_kind == 3 /* Flowers */) {
+        // Angle and radius from the current pixel
+        float a = atan2(uv_centered[0], uv_centered[1]) + M_PI + M_PI_3*shape_rotate ;
+        float r = M_TWOPI/shape_nsides;
+        // TODO Shaping function that modulate the distance
+        d = cos(a*r) * length(uv_centered);
     } 
     //TODO smoothing in uv non squared space lead to inconsistencies
     // alpha=1.0 when inside shape, alpha=0.0 outside, alpha ramp at shape border to have an anti-aliasing or smoothing
