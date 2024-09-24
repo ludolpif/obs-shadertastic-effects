@@ -264,6 +264,30 @@ float ease_in_bezier_demo1(float x) {
 float ease_in_out_bezier_demo1(float x) {
     return x<0.5 ? 0.5 * ease_in_bezier_demo1(2.0*x) : 0.5 * ease_out_bezier_demo1(2.0*x-1.0) + 0.5;
 }
+// https://solhsa.com/interpolation/
+float catmullrom(float t, float p0, float p1, float p2, float p3) {
+    return 0.5 * (
+            (2 * p1) +
+            (-p0 + p2)*t +
+            (2 * p0 - 5 * p1 + 4 * p2 - p3)*t*t +
+            (-p0 + 3 * p1 - 3 * p2 + p3)*t*t*t
+            );
+}
+
+float ease_out_catmullrom_demo1(float x) {
+    float Q = -6.0;
+    float T = 4.0;
+    return catmullrom(x, Q, 0.0, 1.0, T);
+}
+
+float ease_in_catmullrom_demo1(float x) {
+    float w = 1.0-x;
+    return 1.0 - ease_out_catmullrom_demo1(w);
+}
+
+float ease_in_out_catmullrom_demo1(float x) {
+    return x<0.5 ? 0.5 * ease_in_catmullrom_demo1(2.0*x) : 0.5 * ease_out_catmullrom_demo1(2.0*x-1.0) + 0.5;
+}
 
 float4 visual_test(float2 uv, float4 rgba, float ez) {
     // Animate the output
@@ -324,6 +348,9 @@ float apply_easing(float t) {
     else if ( ease_func_id == 31 ) { ez = ease_in_bezier_demo1(t); }
     else if ( ease_func_id == 32 ) { ez = ease_out_bezier_demo1(t); }
     else if ( ease_func_id == 33 ) { ez = ease_in_out_bezier_demo1(t); }
+    else if ( ease_func_id == 34 ) { ez = ease_in_catmullrom_demo1(t); }
+    else if ( ease_func_id == 35 ) { ez = ease_out_catmullrom_demo1(t); }
+    else if ( ease_func_id == 36 ) { ez = ease_in_out_catmullrom_demo1(t); }
     else { ez = t; }
 
     return ez;

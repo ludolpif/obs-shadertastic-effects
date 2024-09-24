@@ -35,7 +35,8 @@
         {"label": "Back", "value": 22},
         {"label": "Elastic", "value": 25},
         {"label": "Bounce", "value": 28},
-        {"label": "Bezier-demo1", "value": 31}
+        {"label": "Bezier-demo1", "value": 31},
+        {"label": "Catmullrom-demo1", "value": 34}
       ],
       "default": 0
     },
